@@ -8,16 +8,15 @@ const prisma = new PrismaClient();
 // Get budgets
 router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { month, year, userId } = req.query;
-    const now = new Date();
-    const m = Number(month) || now.getMonth() + 1;
-    const y = Number(year) || now.getFullYear();
-
-    const whereBudget: any = { month: m, year: y };
+    const { userId } = req.query;
     
-    // If admin and userId is provided in query, get budgets for that user
-    // Otherwise if admin, get all for that month/year (default behavior)
-    // If not admin, strictly only their own budgets
+    // Spending calculation still needs current month/year
+    const now = new Date();
+    const m = now.getMonth() + 1;
+    const y = now.getFullYear();
+
+    const whereBudget: any = {};
+    
     if (req.user!.role === 'admin') {
       if (userId) {
         whereBudget.userId = userId as string;
@@ -35,7 +34,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
       }
     });
 
-    // Get actual spending per category for this month
+    // Get actual spending per category for THIS month
     const startDate = new Date(y, m - 1, 1);
     const endDate = new Date(y, m, 0, 23, 59, 59);
 
@@ -44,7 +43,6 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
       date: { gte: startDate, lte: endDate },
     };
 
-    // Spending filter logic similar to budget filter
     if (req.user!.role === 'admin') {
       if (userId) {
         whereTransaction.userId = userId as string;
@@ -56,10 +54,6 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     const transactions = await prisma.transaction.findMany({
       where: whereTransaction,
     });
-
-    // If userId is NOT provided and user is Admin, this logic might need aggregation per user,
-    // but usually members view their own dashboard, and admins view specific user dashboards.
-    // Let's stick to user-specific aggregation for now.
     
     const spending: Record<string, number> = {};
     transactions.forEach(t => {
@@ -82,19 +76,15 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 // Create/update budget (ADMIN ONLY)
 router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { category, amount, month, year, targetUserId } = req.body;
-    const now = new Date();
+    const { category, amount, targetUserId } = req.body;
 
-    // Admin sets budget for a user (or themselves if targetUserId is null)
     const userId = targetUserId || req.user!.id;
 
     const budget = await prisma.budget.upsert({
       where: {
-        userId_category_month_year: {
+        userId_category: {
           userId,
           category,
-          month: month || now.getMonth() + 1,
-          year: year || now.getFullYear(),
         },
       },
       update: { amount: parseFloat(amount) },
@@ -102,8 +92,6 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
         userId,
         category,
         amount: parseFloat(amount),
-        month: month || now.getMonth() + 1,
-        year: year || now.getFullYear(),
       },
     });
 
