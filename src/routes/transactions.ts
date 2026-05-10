@@ -40,7 +40,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 // Get transaction stats
 router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { month, year } = req.query;
+    const { month, year, userId } = req.query;
     const now = new Date();
     const m = Number(month) || now.getMonth() + 1;
     const y = Number(year) || now.getFullYear();
@@ -48,36 +48,66 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Prom
     const startDate = new Date(y, m - 1, 1);
     const endDate = new Date(y, m, 0, 23, 59, 59);
 
-    const where: any = {
-      date: { gte: startDate, lte: endDate },
-    };
-    if (req.user!.role !== 'admin') {
-      where.userId = req.user!.id;
+    // Filter for cumulative balance (all time)
+    const cumulativeWhere: any = {};
+    if (req.user!.role === 'admin' && userId) {
+      cumulativeWhere.userId = userId as string;
+    } else if (req.user!.role !== 'admin') {
+      cumulativeWhere.userId = req.user!.id;
+    } else if (req.user!.role === 'admin' && !userId) {
+       // If admin but no userId, usually we show admin's own or global? 
+       // Let's stick to current user (admin) by default
+       cumulativeWhere.userId = req.user!.id;
     }
 
-    const transactions = await prisma.transaction.findMany({
-      where,
+    // Filter for monthly stats
+    const monthlyWhere: any = {
+      ...cumulativeWhere,
+      date: { gte: startDate, lte: endDate },
+    };
+
+    // Get all transactions for balance
+    const allTransactions = await prisma.transaction.findMany({
+      where: cumulativeWhere,
+      select: { amount: true, type: true }
     });
 
-    const totalIncome = transactions
+    // Get monthly transactions for breakdown
+    const monthlyTransactions = await prisma.transaction.findMany({
+      where: monthlyWhere,
+    });
+
+    // Monthly calculations
+    const totalIncome = monthlyTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const totalExpenses = transactions
+    const totalExpenses = monthlyTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Category breakdown
+    // Cumulative calculations (The "Wallet")
+    const allTimeIncome = allTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const allTimeExpenses = allTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const cumulativeBalance = allTimeIncome - allTimeExpenses;
+
+    // Category breakdown (Monthly)
     const categoryBreakdown: Record<string, number> = {};
-    transactions
+    monthlyTransactions
       .filter(t => t.type === 'expense')
       .forEach(t => {
         categoryBreakdown[t.category] = (categoryBreakdown[t.category] || 0) + t.amount;
       });
 
-    // Daily chart data
+    // Daily chart data (Monthly)
     const dailyData: Record<string, { income: number; expenses: number }> = {};
-    transactions.forEach(t => {
+    monthlyTransactions.forEach(t => {
       const day = new Date(t.date).getDate().toString();
       if (!dailyData[day]) dailyData[day] = { income: 0, expenses: 0 };
       if (t.type === 'income') dailyData[day].income += t.amount;
@@ -87,12 +117,14 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Prom
     res.json({
       totalIncome,
       totalExpenses,
-      balance: totalIncome - totalExpenses,
+      balance: cumulativeBalance, // Returning cumulative balance as the main "balance"
+      monthlyBalance: totalIncome - totalExpenses,
       categoryBreakdown,
       dailyData,
-      transactionCount: transactions.length,
+      transactionCount: monthlyTransactions.length,
     });
   } catch (error) {
+    console.error('Stats Error:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
