@@ -141,9 +141,11 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 
     // Admin can specify a target user, members can only create for themselves
     let userId = req.user!.id;
-    if (req.user!.role === 'admin' && targetUserId) {
+    if (req.user!.role === 'admin' && targetUserId && targetUserId !== 'all' && targetUserId !== 'undefined') {
       userId = targetUserId;
     }
+
+    console.log(`[Transaction] Creating for User: ${userId}, Type: ${type}, Amount: ${amount}`);
 
     const transaction = await prisma.transaction.create({
       data: {

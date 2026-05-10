@@ -10,15 +10,15 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
   try {
     const { userId } = req.query;
     
-    // Spending calculation still needs current month/year
     const now = new Date();
     const m = now.getMonth() + 1;
     const y = now.getFullYear();
 
     const whereBudget: any = {};
     
+    // Admin can filter by user, or see all if no userId/ 'all'
     if (req.user!.role === 'admin') {
-      if (userId) {
+      if (userId && userId !== 'all' && userId !== 'undefined') {
         whereBudget.userId = userId as string;
       }
     } else {
@@ -44,7 +44,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     };
 
     if (req.user!.role === 'admin') {
-      if (userId) {
+      if (userId && userId !== 'all' && userId !== 'undefined') {
         whereTransaction.userId = userId as string;
       }
     } else {
@@ -69,6 +69,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 
     res.json(budgetsWithSpending);
   } catch (error) {
+    console.error('Fetch Budgets Error:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
@@ -78,7 +79,13 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
   try {
     const { category, amount, targetUserId } = req.body;
 
-    const userId = targetUserId || req.user!.id;
+    // Admin sets budget for a user. Priority: targetUserId > current user
+    let userId = req.user!.id;
+    if (req.user!.role === 'admin' && targetUserId && targetUserId !== 'all' && targetUserId !== 'undefined') {
+      userId = targetUserId;
+    }
+
+    console.log(`[Budget] Creating/Updating for User: ${userId}, Category: ${category}, Amount: ${amount}`);
 
     const budget = await prisma.budget.upsert({
       where: {
@@ -97,7 +104,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
 
     res.json(budget);
   } catch (error) {
-    console.error('Budget Error:', error);
+    console.error('Budget Creation Error:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
