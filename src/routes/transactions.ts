@@ -132,16 +132,22 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Prom
 // Create transaction
 router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { amount, type, category, description, date } = req.body;
+    const { amount, type, category, description, date, targetUserId } = req.body;
 
     if (!amount || !type || !category) {
       res.status(400).json({ message: 'المبلغ والنوع والفئة مطلوبة' });
       return;
     }
 
+    // Admin can specify a target user, members can only create for themselves
+    let userId = req.user!.id;
+    if (req.user!.role === 'admin' && targetUserId) {
+      userId = targetUserId;
+    }
+
     const transaction = await prisma.transaction.create({
       data: {
-        userId: req.user!.id,
+        userId,
         amount: parseFloat(amount),
         type,
         category,
@@ -152,6 +158,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 
     res.status(201).json(transaction);
   } catch (error) {
+    console.error('Create Transaction Error:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
