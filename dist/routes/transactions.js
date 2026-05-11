@@ -1,26 +1,25 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
+const express_1 = __importDefault(require("express"));
 const client_1 = require("@prisma/client");
 const auth_1 = require("../middleware/auth");
-const router = (0, express_1.Router)();
+const router = express_1.default.Router();
 const prisma = new client_1.PrismaClient();
-// Get all transactions for user (with filters)
+// Get transactions
 router.get('/', auth_1.authenticate, async (req, res) => {
     try {
-        const { type, category, month, year, limit } = req.query;
+        const { userId, limit } = req.query;
         const where = {};
-        if (req.user.role !== 'admin') {
-            where.userId = req.user.id;
+        if (req.user.role === 'admin') {
+            if (userId && userId !== 'all' && userId !== 'undefined' && userId !== '') {
+                where.userId = userId;
+            }
         }
-        if (type)
-            where.type = type;
-        if (category)
-            where.category = category;
-        if (month && year) {
-            const startDate = new Date(Number(year), Number(month) - 1, 1);
-            const endDate = new Date(Number(year), Number(month), 0, 23, 59, 59);
-            where.date = { gte: startDate, lte: endDate };
+        else {
+            where.userId = req.user.id;
         }
         const transactions = await prisma.transaction.findMany({
             where,
@@ -30,73 +29,75 @@ router.get('/', auth_1.authenticate, async (req, res) => {
         res.json(transactions);
     }
     catch (error) {
-        console.error('Get transactions error:', error);
-        res.status(500).json({ message: 'حدث خطأ في الخادم' });
+        console.error('[Transactions GET] Error:', error);
+        res.status(500).json({ message: 'حدث خطأ أثناء تحميل المعاملات' });
     }
 });
-// Get transaction stats
+// Get statistics
 router.get('/stats', auth_1.authenticate, async (req, res) => {
     try {
-        const { month, year } = req.query;
-        const now = new Date();
-        const m = Number(month) || now.getMonth() + 1;
-        const y = Number(year) || now.getFullYear();
-        const startDate = new Date(y, m - 1, 1);
-        const endDate = new Date(y, m, 0, 23, 59, 59);
-        const where = {
-            date: { gte: startDate, lte: endDate },
-        };
-        if (req.user.role !== 'admin') {
-            where.userId = req.user.id;
+        const { userId: queryUserId, month, year } = req.query;
+        // Determine which user's stats to fetch
+        let userId = req.user.id;
+        if (req.user.role === 'admin' && queryUserId && queryUserId !== 'all' && queryUserId !== 'undefined' && queryUserId !== '') {
+            userId = queryUserId;
         }
-        const transactions = await prisma.transaction.findMany({
-            where,
+        const now = new Date();
+        const m = month ? parseInt(month) : now.getMonth() + 1;
+        const y = year ? parseInt(year) : now.getFullYear();
+        const startOfMonth = new Date(y, m - 1, 1);
+        const endOfMonth = new Date(y, m, 0, 23, 59, 59);
+        // 1. Total Balance (All time)
+        const allTransactions = await prisma.transaction.findMany({
+            where: { userId },
         });
-        const totalIncome = transactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0);
-        const totalExpenses = transactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
-        // Category breakdown
-        const categoryBreakdown = {};
-        transactions
-            .filter(t => t.type === 'expense')
-            .forEach(t => {
-            categoryBreakdown[t.category] = (categoryBreakdown[t.category] || 0) + t.amount;
-        });
-        // Daily chart data
-        const dailyData = {};
-        transactions.forEach(t => {
-            const day = new Date(t.date).getDate().toString();
-            if (!dailyData[day])
-                dailyData[day] = { income: 0, expenses: 0 };
+        let balance = 0;
+        allTransactions.forEach(t => {
             if (t.type === 'income')
-                dailyData[day].income += t.amount;
+                balance += t.amount;
             else
-                dailyData[day].expenses += t.amount;
+                balance -= t.amount;
+        });
+        // 2. Monthly Stats
+        const monthlyTransactions = await prisma.transaction.findMany({
+            where: {
+                userId,
+                date: { gte: startOfMonth, lte: endOfMonth },
+            },
+        });
+        let totalIncome = 0;
+        let totalExpenses = 0;
+        const categoryBreakdown = {};
+        monthlyTransactions.forEach(t => {
+            if (t.type === 'income') {
+                totalIncome += t.amount;
+            }
+            else {
+                totalExpenses += t.amount;
+                categoryBreakdown[t.category] = (categoryBreakdown[t.category] || 0) + t.amount;
+            }
         });
         res.json({
+            balance,
             totalIncome,
             totalExpenses,
-            balance: totalIncome - totalExpenses,
             categoryBreakdown,
-            dailyData,
-            transactionCount: transactions.length,
         });
     }
     catch (error) {
-        res.status(500).json({ message: 'حدث خطأ في الخادم' });
+        console.error('[Transactions Stats] Error:', error);
+        res.status(500).json({ message: 'حدث خطأ أثناء تحميل الإحصائيات' });
     }
 });
 // Create transaction
 router.post('/', auth_1.authenticate, async (req, res) => {
     try {
-        const { amount, type, category, description, date } = req.body;
+        const { amount, type, category, description, date, targetUserId } = req.body;
         if (!amount || !type || !category) {
-            res.status(400).json({ message: 'المبلغ والنوع والفئة مطلوبة' });
+            res.status(400).json({ message: 'المبلغ والنوع والفئة مطلوبان' });
             return;
         }
+        // Determine target user
         const transaction = await prisma.transaction.create({
             data: {
                 userId: req.user.id,
@@ -107,56 +108,35 @@ router.post('/', auth_1.authenticate, async (req, res) => {
                 date: date ? new Date(date) : new Date(),
             },
         });
-        res.status(201).json(transaction);
-    }
-    catch (error) {
-        res.status(500).json({ message: 'حدث خطأ في الخادم' });
-    }
-});
-// Update transaction
-router.put('/:id', auth_1.authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { amount, type, category, description, date } = req.body;
-        const existing = await prisma.transaction.findFirst({
-            where: { id: id, userId: req.user.id },
-        });
-        if (!existing) {
-            res.status(404).json({ message: 'المعاملة غير موجودة' });
-            return;
-        }
-        const transaction = await prisma.transaction.update({
-            where: { id: id },
-            data: {
-                amount: amount ? parseFloat(amount) : existing.amount,
-                type: type || existing.type,
-                category: category || existing.category,
-                description: description !== undefined ? description : existing.description,
-                date: date ? new Date(date) : existing.date,
-            },
-        });
         res.json(transaction);
     }
     catch (error) {
-        res.status(500).json({ message: 'حدث خطأ في الخادم' });
+        console.error('[Transaction POST] Fatal Error:', error);
+        res.status(500).json({ message: 'حدث خطأ أثناء حفظ المعاملة' });
     }
 });
 // Delete transaction
 router.delete('/:id', auth_1.authenticate, async (req, res) => {
     try {
-        const { id } = req.params;
-        const existing = await prisma.transaction.findFirst({
-            where: { id: id, userId: req.user.id },
+        const transaction = await prisma.transaction.findUnique({
+            where: { id: req.params.id },
         });
-        if (!existing) {
+        if (!transaction) {
             res.status(404).json({ message: 'المعاملة غير موجودة' });
             return;
         }
-        await prisma.transaction.delete({ where: { id: id } });
+        if (req.user.role !== 'admin' && transaction.userId !== req.user.id) {
+            res.status(403).json({ message: 'غير مصرح لك بحذف هذه المعاملة' });
+            return;
+        }
+        await prisma.transaction.delete({
+            where: { id: req.params.id },
+        });
         res.json({ message: 'تم حذف المعاملة بنجاح' });
     }
     catch (error) {
-        res.status(500).json({ message: 'حدث خطأ في الخادم' });
+        console.error('[Transaction DELETE] Error:', error);
+        res.status(500).json({ message: 'حدث خطأ أثناء حذف المعاملة' });
     }
 });
 exports.default = router;

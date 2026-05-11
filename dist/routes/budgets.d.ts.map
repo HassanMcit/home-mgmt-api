@@ -1,1 +1,1 @@
-{"version":3,"file":"budgets.d.ts","sourceRoot":"","sources":["../../src/routes/budgets.ts"],"names":[],"mappings":"AAIA,QAAA,MAAM,MAAM,4CAAW,CAAC;AAyGxB,eAAe,MAAM,CAAC"}
+{"version":3,"file":"budgets.d.ts","sourceRoot":"","sources":["../../src/routes/budgets.ts"],"names":[],"mappings":"AAIA,QAAA,MAAM,MAAM,4CAAmB,CAAC;AAkIhC,eAAe,MAAM,CAAC"}

@@ -14,9 +14,15 @@ const bills_1 = __importDefault(require("./routes/bills"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const ai_1 = __importDefault(require("./routes/ai"));
 dotenv_1.default.config();
+process.env.TZ = 'UTC';
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 app.use((0, cors_1.default)());
+// Global request logger for debugging
+app.use((req, _res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 app.use(express_1.default.json({ limit: '50mb' }));
 app.use(express_1.default.urlencoded({ limit: '50mb', extended: true }));
 // Routes
@@ -32,6 +38,14 @@ app.get('/api/health', (_req, res) => {
 });
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
+// Global error handler
+app.use((err, _req, res, _next) => {
+    console.error('[Global Error]:', err);
+    res.status(err.status || 500).json({
+        message: err.message || 'حدث خطأ داخلي في الخادم',
+        error: process.env.NODE_ENV === 'development' ? err : undefined
+    });
 });
 exports.default = app;
 //# sourceMappingURL=index.js.map
