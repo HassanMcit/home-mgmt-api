@@ -178,7 +178,7 @@ router.get('/tip', authenticate, async (req: AuthRequest, res: Response): Promis
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const result = await model.generateContent(
       'أعطني نصيحة مالية عملية قصيرة ومفيدة باللغة العربية (جملة أو جملتين فقط) للمساعدة في إدارة الميزانية الأسرية.'
