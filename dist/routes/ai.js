@@ -78,11 +78,27 @@ router.get('/analysis', auth_1.authenticate, async (req, res) => {
             });
             return;
         }
+        // 3. Handle Empty Data Case
+        if (transactions.length === 0) {
+            res.json({
+                month: m,
+                year: y,
+                monthName: monthNames[m - 1],
+                totalIncome: 0,
+                totalExpenses: 0,
+                balance: 0,
+                categoryBreakdown: [],
+                transactionCount: 0,
+                aiAnalysis: "لا توجد معاملات مسجلة لهذا الشهر حتى الآن. ابدأ بتسجيل معاملاتك المالية لتصلك التحليلات الذكية!",
+                noApiKey: false,
+            });
+            return;
+        }
         const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' }, { apiVersion: 'v1' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
         const prompt = `أنت مستشار مالي خبير. قم بتحليل بيانات المصاريف الشهرية التالية وتقديم تقرير مفصل باللغة العربية.
 
-اسم المستخدم: ${user?.name}
+اسم المستخدم: ${user?.name || 'مستخدم النظام'}
 الشهر: ${monthNames[m - 1]} ${y}
 
 الإحصائيات:
@@ -103,6 +119,9 @@ ${sortedCategories.map(c => `- ${c.categoryAr}: ${c.amount.toFixed(2)} جنيه 
 
 اجعل التحليل عملياً ومحدداً مع أرقام وتوصيات واقعية. استخدم أسماء الفئات بالعربية.`;
         const result = await model.generateContent(prompt);
+        if (!result || !result.response) {
+            throw new Error('فشل الحصول على رد من الذكاء الاصطناعي');
+        }
         const aiAnalysis = result.response.text();
         res.json({
             month: m,
@@ -118,13 +137,11 @@ ${sortedCategories.map(c => `- ${c.categoryAr}: ${c.amount.toFixed(2)} جنيه 
         });
     }
     catch (error) {
-        console.error('AI analysis error:', error);
-        if (error.status === 404) {
-            console.error('Model not found or API key restricted. Check Google AI Studio project settings.');
-        }
+        console.error('AI analysis error details:', error);
         res.status(500).json({
-            message: 'حدث خطأ في التحليل',
-            details: error.message
+            message: 'حدث خطأ أثناء إجراء التحليل الذكي',
+            details: error.message,
+            error: true
         });
     }
 });

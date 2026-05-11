@@ -7,8 +7,17 @@ const express_1 = require("express");
 const client_1 = require("@prisma/client");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const auth_1 = require("../middleware/auth");
+const reportService_1 = require("../services/reportService");
 const router = (0, express_1.Router)();
 const prisma = new client_1.PrismaClient();
+// TEST ROUTE: Trigger monthly report manually
+router.post('/test-report', auth_1.authenticate, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'غير مصرح لك' });
+    }
+    await (0, reportService_1.generateAndSendMonthlyReports)();
+    res.json({ message: 'تم إرسال التقارير التجريبية بنجاح! تفقد بريدك.' });
+});
 // Get all registration requests
 router.get('/requests', auth_1.authenticate, auth_1.requireAdmin, async (_req, res) => {
     try {

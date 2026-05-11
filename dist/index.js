@@ -13,6 +13,7 @@ const savings_1 = __importDefault(require("./routes/savings"));
 const bills_1 = __importDefault(require("./routes/bills"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const ai_1 = __importDefault(require("./routes/ai"));
+const reportService_1 = require("./services/reportService");
 dotenv_1.default.config();
 process.env.TZ = 'UTC';
 const app = (0, express_1.default)();
@@ -36,6 +37,8 @@ app.use('/api/ai', ai_1.default);
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', message: 'HA Home Management API is running' });
 });
+// Initialize Cron Jobs
+(0, reportService_1.initMonthlyReportCron)();
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
