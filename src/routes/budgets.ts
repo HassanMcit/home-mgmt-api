@@ -11,8 +11,12 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     const { userId, month, year } = req.query;
     
     const now = new Date();
-    const m = month ? parseInt(month as string) : now.getMonth() + 1;
-    const y = year ? parseInt(year as string) : now.getFullYear();
+    let m = month ? parseInt(month as string) : now.getMonth() + 1;
+    let y = year ? parseInt(year as string) : now.getFullYear();
+    
+    // Validate m and y
+    if (isNaN(m) || m < 1 || m > 12) m = now.getMonth() + 1;
+    if (isNaN(y) || y < 2000 || y > 2100) y = now.getFullYear();
 
     // 1. Determine which budgets to fetch
     const whereBudget: any = {};

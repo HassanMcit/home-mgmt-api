@@ -42,4 +42,13 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
+// Global error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[Global Error]:', err);
+  res.status(err.status || 500).json({
+    message: err.message || 'حدث خطأ داخلي في الخادم',
+    error: process.env.NODE_ENV === 'development' ? err : undefined
+  });
+});
+
 export default app;
