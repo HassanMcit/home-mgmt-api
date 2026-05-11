@@ -75,9 +75,12 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     });
 
     res.json(budgetsWithSpending);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Budgets GET] Fatal Error:', error);
-    res.status(500).json({ message: 'حدث خطأ أثناء تحميل الميزانية' });
+    res.status(500).json({ 
+      message: 'خطأ تحميل الميزانية: ' + (error.message || 'خطأ مجهول'),
+      debug: error.stack 
+    });
   }
 });
 
