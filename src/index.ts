@@ -1,6 +1,7 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import transactionRoutes from './routes/transactions';
 import budgetRoutes from './routes/budgets';
@@ -10,7 +11,6 @@ import adminRoutes from './routes/admin';
 import aiRoutes from './routes/ai';
 import { initMonthlyReportCron } from './services/reportService';
 
-dotenv.config();
 process.env.TZ = 'UTC';
 
 const app = express();
