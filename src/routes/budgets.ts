@@ -1,11 +1,11 @@
-import { Router, Response } from 'express';
+import express, { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth';
 
-const router = Router();
+const router = express.Router();
 const prisma = new PrismaClient();
 
-// Get budgets
+// Get budgets with actual spending calculation
 router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { userId } = req.query;
@@ -14,11 +14,10 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     const m = now.getMonth() + 1;
     const y = now.getFullYear();
 
+    // 1. Determine which budgets to fetch
     const whereBudget: any = {};
-    
-    // Admin can filter by user, or see all if no userId/ 'all'
     if (req.user!.role === 'admin') {
-      if (userId && userId !== 'all' && userId !== 'undefined') {
+      if (userId && userId !== 'all' && userId !== 'undefined' && userId !== '') {
         whereBudget.userId = userId as string;
       }
     } else {
@@ -34,7 +33,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
       }
     });
 
-    // Get actual spending per category for THIS month
+    // 2. Determine which transactions to fetch for spending calculation
     const startDate = new Date(y, m - 1, 1);
     const endDate = new Date(y, m, 0, 23, 59, 59);
 
@@ -44,7 +43,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     };
 
     if (req.user!.role === 'admin') {
-      if (userId && userId !== 'all' && userId !== 'undefined') {
+      if (userId && userId !== 'all' && userId !== 'undefined' && userId !== '') {
         whereTransaction.userId = userId as string;
       }
     } else {
@@ -55,22 +54,30 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
       where: whereTransaction,
     });
     
-    const spending: Record<string, number> = {};
+    // 3. Map spending by [userId][category] to avoid mixed up data for Admins
+    const spendingMap: Record<string, Record<string, number>> = {};
     transactions.forEach(t => {
-      spending[t.category] = (spending[t.category] || 0) + t.amount;
+      if (!spendingMap[t.userId]) spendingMap[t.userId] = {};
+      spendingMap[t.userId][t.category] = (spendingMap[t.userId][t.category] || 0) + t.amount;
     });
 
-    const budgetsWithSpending = budgets.map(b => ({
-      ...b,
-      userName: b.user.name,
-      spent: spending[b.category] || 0,
-      remaining: b.amount - (spending[b.category] || 0),
-    }));
+    // 4. Combine budget info with calculated spending
+    const budgetsWithSpending = budgets.map(b => {
+      const userSpent = spendingMap[b.userId] || {};
+      const actualSpent = userSpent[b.category] || 0;
+      
+      return {
+        ...b,
+        userName: b.user?.name || 'مستخدم',
+        spent: actualSpent,
+        remaining: Math.max(0, b.amount - actualSpent),
+      };
+    });
 
     res.json(budgetsWithSpending);
   } catch (error) {
-    console.error('Fetch Budgets Error:', error);
-    res.status(500).json({ message: 'حدث خطأ في الخادم' });
+    console.error('[Budgets GET] Fatal Error:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء تحميل الميزانية' });
   }
 });
 
@@ -79,13 +86,21 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
   try {
     const { category, amount, targetUserId } = req.body;
 
-    // Admin sets budget for a user. Priority: targetUserId > current user
-    let userId = req.user!.id;
-    if (req.user!.role === 'admin' && targetUserId && targetUserId !== 'all' && targetUserId !== 'undefined') {
-      userId = targetUserId;
+    if (!category || !amount) {
+      res.status(400).json({ message: 'الفئة والمبلغ مطلوبان' });
+      return;
     }
 
-    console.log(`[Budget] Creating/Updating for User: ${userId}, Category: ${category}, Amount: ${amount}`);
+    // Force Admin to specify a user explicitly if they are doing it for someone else
+    // We don't default to Admin ID here anymore to prevent accidental self-attribution
+    const userId = targetUserId;
+    
+    if (!userId || userId === 'all' || userId === 'undefined' || userId === '') {
+      res.status(400).json({ message: 'يرجى تحديد المستخدم المستهدف بوضوح' });
+      return;
+    }
+
+    console.log(`[Budget POST] Assigning for User: ${userId}, Cat: ${category}, Amt: ${amount}`);
 
     const budget = await prisma.budget.upsert({
       where: {
@@ -104,29 +119,21 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
 
     res.json(budget);
   } catch (error) {
-    console.error('Budget Creation Error:', error);
-    res.status(500).json({ message: 'حدث خطأ في الخادم' });
+    console.error('[Budgets POST] Fatal Error:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء حفظ الميزانية' });
   }
 });
 
 // Delete budget (ADMIN ONLY)
 router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-
-    const existing = await prisma.budget.findUnique({
-      where: { id: id as string },
+    await prisma.budget.delete({
+      where: { id: req.params.id },
     });
-
-    if (!existing) {
-      res.status(404).json({ message: 'الميزانية غير موجودة' });
-      return;
-    }
-
-    await prisma.budget.delete({ where: { id: id as string } });
     res.json({ message: 'تم حذف الميزانية بنجاح' });
   } catch (error) {
-    res.status(500).json({ message: 'حدث خطأ في الخادم' });
+    console.error('[Budgets DELETE] Error:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء حذف الميزانية' });
   }
 });
 
