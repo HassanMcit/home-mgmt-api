@@ -62,7 +62,7 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
       data: { status: 'approved' },
     });
 
-    // Send Welcome Email
+    // Send Welcome Email in background
     const welcomeHtml = `
       <div dir="rtl" style="font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; max-width: 600px; margin: auto;">
         <div style="background-color: #1e1b4b; color: white; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 20px;">
@@ -97,7 +97,9 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
       </div>
     `;
 
-    await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
+    sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml).catch(err => {
+      console.error('[Background Email Error]:', err);
+    });
 
     res.json({ message: `تم قبول طلب تسجيل ${request.name} بنجاح وإرسال بريد ترحيبي` });
   } catch (error) {
