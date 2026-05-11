@@ -30,11 +30,6 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 
     const budgets = await prisma.budget.findMany({
       where: whereBudget,
-      include: {
-        user: {
-          select: { name: true }
-        }
-      }
     });
 
     // 2. Determine which transactions to fetch for spending calculation
@@ -72,7 +67,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
       
       return {
         ...b,
-        userName: b.user?.name || 'مستخدم',
+        userName: 'مستخدم',
         spent: actualSpent,
         remaining: Math.max(0, b.amount - actualSpent),
       };
@@ -100,12 +95,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
 
     // Force Admin to specify a user explicitly if they are doing it for someone else
     // We don't default to Admin ID here anymore to prevent accidental self-attribution
-    const userId = targetUserId;
-    
-    if (!userId || userId === 'all' || userId === 'undefined' || userId === '') {
-      res.status(400).json({ message: 'يرجى تحديد المستخدم المستهدف بوضوح' });
-      return;
-    }
+    const userId = req.user!.id;
 
     console.log(`[Budget POST] Assigning for User: ${userId}, Cat: ${category}, Amt: ${amount}`);
 
