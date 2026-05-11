@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Get transactions
 router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { userId } = req.query;
+    const { userId, limit } = req.query;
     const where: any = {};
 
     if (req.user!.role === 'admin') {
@@ -22,12 +22,65 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     const transactions = await prisma.transaction.findMany({
       where,
       orderBy: { date: 'desc' },
+      take: limit ? parseInt(limit as string) : undefined,
     });
 
     res.json(transactions);
   } catch (error) {
     console.error('[Transactions GET] Error:', error);
     res.status(500).json({ message: 'حدث خطأ أثناء تحميل المعاملات' });
+  }
+});
+
+// Get statistics
+router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    // 1. Total Balance (All time)
+    const allTransactions = await prisma.transaction.findMany({
+      where: { userId },
+    });
+
+    let balance = 0;
+    allTransactions.forEach(t => {
+      if (t.type === 'income') balance += t.amount;
+      else balance -= t.amount;
+    });
+
+    // 2. Monthly Stats
+    const monthlyTransactions = await prisma.transaction.findMany({
+      where: {
+        userId,
+        date: { gte: startOfMonth, lte: endOfMonth },
+      },
+    });
+
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    const categoryBreakdown: Record<string, number> = {};
+
+    monthlyTransactions.forEach(t => {
+      if (t.type === 'income') {
+        totalIncome += t.amount;
+      } else {
+        totalExpenses += t.amount;
+        categoryBreakdown[t.category] = (categoryBreakdown[t.category] || 0) + t.amount;
+      }
+    });
+
+    res.json({
+      balance,
+      totalIncome,
+      totalExpenses,
+      categoryBreakdown,
+    });
+  } catch (error) {
+    console.error('[Transactions Stats] Error:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء تحميل الإحصائيات' });
   }
 });
 
@@ -46,10 +99,6 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
     if (req.user!.role === 'admin') {
       if (targetUserId && targetUserId !== 'all' && targetUserId !== 'undefined' && targetUserId !== '') {
         userId = targetUserId;
-      } else {
-        // For admin, we force explicit userId if they want to add for someone else
-        // If they don't provide it, it defaults to them (Admin's own wallet)
-        userId = req.user!.id;
       }
     }
 
@@ -85,7 +134,6 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
       return;
     }
 
-    // Admins can delete anything, users only their own
     if (req.user!.role !== 'admin' && transaction.userId !== req.user!.id) {
       res.status(403).json({ message: 'غير مصرح لك بحذف هذه المعاملة' });
       return;
