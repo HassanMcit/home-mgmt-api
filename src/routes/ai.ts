@@ -23,7 +23,7 @@ const CATEGORY_NAMES: Record<string, string> = {
 // Get AI monthly analysis
 router.get('/analysis', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { month, year } = req.query;
+    const { month, year, userId } = req.query;
     const now = new Date();
     const m = Number(month) || now.getMonth() + 1;
     const y = Number(year) || now.getFullYear();
@@ -34,8 +34,11 @@ router.get('/analysis', authenticate, async (req: AuthRequest, res: Response): P
     const where: any = {
       date: { gte: startDate, lte: endDate },
     };
+    
     if (req.user!.role !== 'admin') {
       where.userId = req.user!.id;
+    } else if (userId && userId !== 'all' && userId !== 'undefined') {
+      where.userId = userId as string;
     }
 
     const transactions = await prisma.transaction.findMany({

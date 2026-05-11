@@ -105,14 +105,20 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
     }
 
     // Determine target user
+    let userId = req.user!.id;
+    if (req.user!.role === 'admin' && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
+      userId = targetUserId;
+    }
+
     const transaction = await prisma.transaction.create({
       data: {
-        userId: req.user!.id,
+        userId,
         amount: parseFloat(amount),
         type,
         category,
         description,
         date: date ? new Date(date) : new Date(),
+        createdById: req.user!.id,
       },
     });
 
