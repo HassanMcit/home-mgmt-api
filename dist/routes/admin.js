@@ -124,6 +124,40 @@ router.get('/users', auth_1.authenticate, auth_1.requireAdmin, async (_req, res)
         res.status(500).json({ message: 'حدث خطأ في الخادم' });
     }
 });
+// Update user role/name
+router.put('/users/:id', auth_1.authenticate, auth_1.requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, role } = req.body;
+        const user = await prisma.user.update({
+            where: { id: id },
+            data: { name, role },
+            select: { id: true, name: true, email: true, role: true, avatar: true },
+        });
+        res.json(user);
+    }
+    catch (error) {
+        res.status(500).json({ message: 'حدث خطأ أثناء تحديث بيانات المستخدم' });
+    }
+});
+// Delete user
+router.delete('/users/:id', auth_1.authenticate, auth_1.requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Prevent admin from deleting themselves
+        if (id === req.user.id) {
+            res.status(400).json({ message: 'لا يمكنك حذف حسابك الخاص من هنا' });
+            return;
+        }
+        await prisma.user.delete({
+            where: { id: id },
+        });
+        res.json({ message: 'تم حذف المستخدم بنجاح' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'حدث خطأ أثناء حذف المستخدم' });
+    }
+});
 // Get dashboard stats (admin)
 router.get('/stats', auth_1.authenticate, auth_1.requireAdmin, async (_req, res) => {
     try {
@@ -136,14 +170,46 @@ router.get('/stats', auth_1.authenticate, auth_1.requireAdmin, async (_req, res)
         });
         const totalIncome = monthlyTransactions
             .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + (t.amount || 0), 0);
         const totalExpenses = monthlyTransactions
             .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
+            .reduce((sum, t) => sum + (t.amount || 0), 0);
         res.json({ totalUsers, pendingRequests, totalIncome, totalExpenses });
     }
     catch (error) {
-        res.status(500).json({ message: 'حدث خطأ في الخادم' });
+        console.error('[Admin Stats] Error:', error);
+        res.status(500).json({ message: 'حدث خطأ في تحميل إحصائيات الإدارة' });
+    }
+});
+// Get active reset codes
+router.get('/reset-codes', auth_1.authenticate, auth_1.requireAdmin, async (_req, res) => {
+    try {
+        const codes = await prisma.passwordReset.findMany({
+            where: { expiresAt: { gt: new Date() } },
+            orderBy: { createdAt: 'desc' }
+        });
+        // Get user names for these emails
+        const emails = codes.map(c => c.email);
+        const users = await prisma.user.findMany({
+            where: { email: { in: emails } },
+            select: { email: true, name: true }
+        });
+        const userMap = users.reduce((acc, u) => {
+            acc[u.email] = u.name;
+            return acc;
+        }, {});
+        const codesWithNames = codes.map(c => ({
+            id: c.id,
+            email: c.email,
+            name: userMap[c.email] || 'مستخدم غير معروف',
+            code: c.code,
+            expiresAt: c.expiresAt
+        }));
+        res.json(codesWithNames);
+    }
+    catch (error) {
+        console.error('[Admin Reset Codes] Error:', error);
+        res.status(500).json({ message: 'حدث خطأ في تحميل أكواد استعادة كلمة المرور' });
     }
 });
 exports.default = router;
