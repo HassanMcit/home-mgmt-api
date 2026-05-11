@@ -39,10 +39,20 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 // Get statistics
 router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.id;
+    const { userId: queryUserId, month, year } = req.query;
+    
+    // Determine which user's stats to fetch
+    let userId = req.user!.id;
+    if (req.user!.role === 'admin' && queryUserId && queryUserId !== 'all' && queryUserId !== 'undefined' && queryUserId !== '') {
+      userId = queryUserId as string;
+    }
+
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const m = month ? parseInt(month as string) : now.getMonth() + 1;
+    const y = year ? parseInt(year as string) : now.getFullYear();
+
+    const startOfMonth = new Date(y, m - 1, 1);
+    const endOfMonth = new Date(y, m, 0, 23, 59, 59);
 
     // 1. Total Balance (All time)
     const allTransactions = await prisma.transaction.findMany({
