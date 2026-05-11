@@ -95,7 +95,7 @@ router.get('/analysis', auth_1.authenticate, async (req, res) => {
             return;
         }
         const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
         const prompt = `أنت مستشار مالي خبير. قم بتحليل بيانات المصاريف الشهرية التالية وتقديم تقرير مفصل باللغة العربية.
 
 اسم المستخدم: ${user?.name || 'مستخدم النظام'}
