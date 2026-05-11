@@ -49,8 +49,10 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     
     const spendingMap: Record<string, Record<string, number>> = {};
     transactions.forEach(t => {
-      if (!spendingMap[t.userId]) spendingMap[t.userId] = {};
-      spendingMap[t.userId][t.category] = (spendingMap[t.userId][t.category] || 0) + t.amount;
+      if (t && t.userId && t.category) {
+        if (!spendingMap[t.userId]) spendingMap[t.userId] = {};
+        spendingMap[t.userId][t.category] = (spendingMap[t.userId][t.category] || 0) + (t.amount || 0);
+      }
     });
 
     const budgetsWithSpending = budgets.map(b => {
@@ -121,7 +123,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
 router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await prisma.budget.delete({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
     });
     res.json({ message: 'تم حذف الميزانية بنجاح' });
   } catch (error) {

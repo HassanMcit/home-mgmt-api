@@ -10,6 +10,7 @@ import adminRoutes from './routes/admin';
 import aiRoutes from './routes/ai';
 
 dotenv.config();
+process.env.TZ = 'UTC';
 
 const app = express();
 const PORT = process.env.PORT || 5000;

@@ -127,7 +127,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const transaction = await prisma.transaction.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
     });
 
     if (!transaction) {
@@ -141,7 +141,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
     }
 
     await prisma.transaction.delete({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
     });
 
     res.json({ message: 'تم حذف المعاملة بنجاح' });
