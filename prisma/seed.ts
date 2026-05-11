@@ -95,11 +95,9 @@ async function main() {
   for (const b of budgets) {
     await prisma.budget.upsert({
       where: {
-        userId_category_month_year: {
+        userId_category: {
           userId: admin.id,
           category: b.category,
-          month: month + 1,
-          year,
         },
       },
       update: {},
@@ -107,8 +105,6 @@ async function main() {
         userId: admin.id,
         category: b.category,
         amount: b.amount,
-        month: month + 1,
-        year,
       },
     });
   }
