@@ -22,7 +22,7 @@ const CATEGORY_NAMES = {
 // Get AI monthly analysis
 router.get('/analysis', auth_1.authenticate, async (req, res) => {
     try {
-        const { month, year } = req.query;
+        const { month, year, userId } = req.query;
         const now = new Date();
         const m = Number(month) || now.getMonth() + 1;
         const y = Number(year) || now.getFullYear();
@@ -33,6 +33,9 @@ router.get('/analysis', auth_1.authenticate, async (req, res) => {
         };
         if (req.user.role !== 'admin') {
             where.userId = req.user.id;
+        }
+        else if (userId && userId !== 'all' && userId !== 'undefined') {
+            where.userId = userId;
         }
         const transactions = await prisma.transaction.findMany({
             where,

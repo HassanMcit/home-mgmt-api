@@ -81,8 +81,11 @@ router.post('/', auth_1.authenticate, auth_1.requireAdmin, async (req, res) => {
             return;
         }
         // Force Admin to specify a user explicitly if they are doing it for someone else
-        // We don't default to Admin ID here anymore to prevent accidental self-attribution
-        const userId = req.user.id;
+        // Default to req.user!.id if no targetUserId provided or if not admin
+        let userId = req.user.id;
+        if (req.user.role === 'admin' && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
+            userId = targetUserId;
+        }
         console.log(`[Budget POST] Assigning for User: ${userId}, Cat: ${category}, Amt: ${amount}`);
         const existingBudget = await prisma.budget.findFirst({
             where: { userId, category }
