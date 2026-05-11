@@ -17,11 +17,10 @@ router.post('/test-report', authenticate, async (req: AuthRequest, res: Response
   res.json({ message: 'تم إرسال التقارير التجريبية بنجاح! تفقد بريدك.' });
 });
 
-// Get all registration requests
+// Get all registration requests (including past ones)
 router.get('/requests', authenticate, requireAdmin, async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const requests = await prisma.registrationRequest.findMany({
-      where: { status: 'pending' },
       orderBy: { createdAt: 'desc' },
     });
     res.json(requests);
@@ -97,9 +96,14 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
       </div>
     `;
 
-    sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml).catch(err => {
-      console.error('[Background Email Error]:', err);
-    });
+    // Send Welcome Email
+    console.log(`[Admin] Attempting to send welcome email to: ${request.email}`);
+    try {
+      const emailResult = await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
+      console.log(`[Admin] Email sending result for ${request.email}:`, emailResult ? 'Success' : 'Failed');
+    } catch (err) {
+      console.error(`[Admin] Critical Email Error for ${request.email}:`, err);
+    }
 
     res.json({ message: `تم قبول طلب تسجيل ${request.name} بنجاح وإرسال بريد ترحيبي` });
   } catch (error) {
