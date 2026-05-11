@@ -93,3 +93,13 @@ model Bill {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}

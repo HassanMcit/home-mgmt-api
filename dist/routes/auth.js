@@ -135,7 +135,9 @@ router.put('/change-password', auth_1.authenticate, async (req, res) => {
         res.status(500).json({ message: 'حدث خطأ في الخادم' });
     }
 });
-// Forgot password - generates a reset token (stored as temp password)
+const mailer_1 = require("../utils/mailer");
+// ... (existing routes up to forgot-password)
+// Forgot password - generates a reset code and sends it via email
 router.post('/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
@@ -144,26 +146,34 @@ router.post('/forgot-password', async (req, res) => {
             return;
         }
         const user = await prisma.user.findUnique({ where: { email } });
-        // Always return success to prevent email enumeration
         if (!user) {
+            // Still return success to prevent email enumeration, but don't send anything
             res.json({ message: 'إذا كان البريد مسجلاً، ستصلك رسالة إعادة التعيين' });
             return;
         }
-        // Generate a 6-digit reset code valid for 15 minutes
+        // Generate a 6-digit reset code
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const resetExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 min
-        // Store hashed reset code in avatar field temporarily (simple approach without extra DB column)
-        // In production you'd store in a separate table or send email
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { avatar: `RESET:${resetCode}:${resetExpiry.getTime()}` },
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+        // Save to DB
+        await prisma.passwordReset.create({
+            data: { email, code: resetCode, expiresAt }
         });
-        // In production: send email with resetCode
-        // For now: log it so admin can share it
-        console.log(`🔑 Reset code for ${email}: ${resetCode} (expires in 15 min)`);
-        res.json({ message: 'تم إرسال رمز إعادة التعيين. تواصل مع المدير لمعرفة الرمز.' });
+        // Send Email
+        const emailHtml = `
+      <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 15px; max-width: 500px; margin: auto;">
+        <h2 style="color: #6366f1;">إعادة تعيين كلمة المرور</h2>
+        <p>لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. استخدم الكود التالي:</p>
+        <div style="background: #f8fafc; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;">
+          <h1 style="margin: 0; letter-spacing: 5px; color: #1e293b; font-size: 32px;">${resetCode}</h1>
+        </div>
+        <p style="color: #64748b; font-size: 14px;">هذا الكود صالح لمدة 15 دقيقة فقط. إذا لم تطلب هذا التغيير، يرجى تجاهل الرسالة.</p>
+      </div>
+    `;
+        await (0, mailer_1.sendEmail)(email, 'رمز إعادة تعيين كلمة المرور', emailHtml);
+        res.json({ message: 'تم إرسال رمز إعادة التعيين إلى بريدك الإلكتروني.' });
     }
     catch (error) {
+        console.error('Forgot password error:', error);
         res.status(500).json({ message: 'حدث خطأ في الخادم' });
     }
 });
@@ -175,20 +185,13 @@ router.post('/reset-password', async (req, res) => {
             res.status(400).json({ message: 'جميع الحقول مطلوبة' });
             return;
         }
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || !user.avatar?.startsWith('RESET:')) {
-            res.status(400).json({ message: 'رمز إعادة التعيين غير صالح أو منتهي الصلاحية' });
-            return;
-        }
-        const parts = user.avatar.split(':');
-        const storedCode = parts[1];
-        const expiry = parseInt(parts[2]);
-        if (storedCode !== code) {
-            res.status(400).json({ message: 'الرمز غير صحيح' });
-            return;
-        }
-        if (Date.now() > expiry) {
-            res.status(400).json({ message: 'انتهت صلاحية الرمز. يرجى طلب رمز جديد.' });
+        // Find the latest valid code for this email
+        const resetRequest = await prisma.passwordReset.findFirst({
+            where: { email, code },
+            orderBy: { createdAt: 'desc' }
+        });
+        if (!resetRequest) {
+            res.status(400).json({ message: 'الرمز غير صحيح أو منتهي الصلاحية' });
             return;
         }
         if (newPassword.length < 6) {
@@ -196,13 +199,17 @@ router.post('/reset-password', async (req, res) => {
             return;
         }
         const hashedPassword = await bcryptjs_1.default.hash(newPassword, 12);
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { password: hashedPassword, avatar: null }, // Clear reset token
-        });
-        res.json({ message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { email },
+                data: { password: hashedPassword }
+            }),
+            prisma.passwordReset.deleteMany({ where: { email } }) // Clear all codes for this user
+        ]);
+        res.json({ message: 'تم إعادة تعيين كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول.' });
     }
     catch (error) {
+        console.error('Reset password error:', error);
         res.status(500).json({ message: 'حدث خطأ في الخادم' });
     }
 });
