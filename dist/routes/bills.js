@@ -62,11 +62,58 @@ router.put('/:id/toggle', auth_1.authenticate, async (req, res) => {
             res.status(404).json({ message: 'الفاتورة غير موجودة' });
             return;
         }
-        const bill = await prisma.bill.update({
-            where: { id: id },
-            data: { isPaid: !existing.isPaid },
+        const newStatus = !existing.isPaid;
+        // Use a transaction to ensure all operations succeed or fail together
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Update the current bill status
+            const updatedBill = await tx.bill.update({
+                where: { id: id },
+                data: { isPaid: newStatus },
+            });
+            // 2. If bill is being marked as PAID
+            if (newStatus === true) {
+                // Create an expense transaction
+                await tx.transaction.create({
+                    data: {
+                        userId: existing.userId,
+                        amount: existing.amount,
+                        type: 'expense',
+                        category: existing.category,
+                        description: `دفع فاتورة: ${existing.name}`,
+                        date: new Date(), // Recorded today
+                        createdById: req.user.id
+                    }
+                });
+                // 3. If bill is RECURRING, create the next one for next month
+                if (existing.isRecurring) {
+                    const nextDueDate = new Date(existing.dueDate);
+                    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                    // Check if a bill with same name and next month date already exists to avoid duplicates
+                    const alreadyExists = await tx.bill.findFirst({
+                        where: {
+                            userId: existing.userId,
+                            name: existing.name,
+                            dueDate: nextDueDate
+                        }
+                    });
+                    if (!alreadyExists) {
+                        await tx.bill.create({
+                            data: {
+                                userId: existing.userId,
+                                name: existing.name,
+                                amount: existing.amount,
+                                dueDate: nextDueDate,
+                                isRecurring: true,
+                                isPaid: false,
+                                category: existing.category
+                            }
+                        });
+                    }
+                }
+            }
+            return updatedBill;
         });
-        res.json(bill);
+        res.json(result);
     }
     catch (error) {
         console.error('Bill toggle error:', error);
