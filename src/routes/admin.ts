@@ -2,9 +2,20 @@ import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
+import { generateAndSendMonthlyReports } from '../services/reportService';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+// TEST ROUTE: Trigger monthly report manually
+router.post('/test-report', authenticate, async (req: AuthRequest, res: Response) => {
+  if (req.user!.role !== 'admin') {
+    return res.status(403).json({ message: 'غير مصرح لك' });
+  }
+  
+  await generateAndSendMonthlyReports();
+  res.json({ message: 'تم إرسال التقارير التجريبية بنجاح! تفقد بريدك.' });
+});
 
 // Get all registration requests
 router.get('/requests', authenticate, requireAdmin, async (_req: AuthRequest, res: Response): Promise<void> => {

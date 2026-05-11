@@ -8,6 +8,7 @@ import savingRoutes from './routes/savings';
 import billRoutes from './routes/bills';
 import adminRoutes from './routes/admin';
 import aiRoutes from './routes/ai';
+import { initMonthlyReportCron } from './services/reportService';
 
 dotenv.config();
 process.env.TZ = 'UTC';
@@ -38,6 +39,8 @@ app.use('/api/ai', aiRoutes);
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'HA Home Management API is running' });
 });
+// Initialize Cron Jobs
+initMonthlyReportCron();
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
