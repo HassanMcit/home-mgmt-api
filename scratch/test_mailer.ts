@@ -17,7 +17,7 @@ async function test() {
   try {
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER, // Send to self
+      to: 'hassan.a173784@gmail.com',
       subject: 'Test Email from HA Home Management',
       text: 'This is a test email to verify the mailer configuration.',
     });
