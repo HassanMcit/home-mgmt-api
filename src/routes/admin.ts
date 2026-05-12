@@ -45,23 +45,25 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
       return;
     }
 
-    // Create user
-    await prisma.user.create({
-      data: {
-        name: request.name,
-        email: request.email,
-        password: request.password, // already hashed
-        role: 'member',
-      },
-    });
+    // 1. Create user and update request status in a transaction
+    await prisma.$transaction([
+      prisma.user.create({
+        data: {
+          name: request.name,
+          email: request.email,
+          password: request.password,
+          role: 'member',
+        },
+      }),
+      prisma.registrationRequest.update({
+        where: { id: id as string },
+        data: { status: 'approved' },
+      })
+    ]);
 
-    // Update request status
-    await prisma.registrationRequest.update({
-      where: { id: id as string },
-      data: { status: 'approved' },
-    });
+    console.log(`[Admin Approval] Success: User ${request.email} created and request marked as approved.`);
 
-    // Send Welcome Email in background
+    // 2. Prepare and send Welcome Email
     const welcomeHtml = `
       <div dir="rtl" style="font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; max-width: 600px; margin: auto;">
         <div style="background-color: #1e1b4b; color: white; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 20px;">
@@ -96,19 +98,33 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
       </div>
     `;
 
-    // Send Welcome Email
-    console.log(`[Admin] Attempting to send welcome email to: ${request.email}`);
+    console.log(`[Admin Approval] Attempting to send welcome email to TARGET: ${request.email}`);
+    
+    let emailSent = false;
     try {
-      const emailResult = await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
-      console.log(`[Admin] Email sending result for ${request.email}:`, emailResult ? 'Success' : 'Failed');
+      emailSent = await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
+      if (emailSent) {
+        console.log(`[Admin Approval] Welcome email DISPATCHED successfully to: ${request.email}`);
+      } else {
+        console.warn(`[Admin Approval] Welcome email FAILED for: ${request.email}`);
+      }
     } catch (err) {
-      console.error(`[Admin] Critical Email Error for ${request.email}:`, err);
+      console.error(`[Admin Approval] Critical Error sending email to ${request.email}:`, err);
     }
 
-    res.json({ message: `تم قبول طلب تسجيل ${request.name} بنجاح وإرسال بريد ترحيبي` });
-  } catch (error) {
-    console.error('Approval error:', error);
-    res.status(500).json({ message: 'حدث خطأ في الخادم' });
+    res.json({ 
+      message: emailSent 
+        ? `تم قبول طلب تسجيل ${request.name} بنجاح وإرسال بريد ترحيبي` 
+        : `تم قبول طلب تسجيل ${request.name} بنجاح، لكن تعذر إرسال بريد ترحيبي`
+    });
+  } catch (error: any) {
+    console.error('[Admin Approval] Error:', error);
+    // Check if error is due to unique constraint (email already exists)
+    if (error.code === 'P2002') {
+      res.status(400).json({ message: 'هذا البريد الإلكتروني مسجل بالفعل كمستخدم' });
+    } else {
+      res.status(500).json({ message: 'حدث خطأ في الخادم أثناء معالجة الطلب' });
+    }
   }
 });
 

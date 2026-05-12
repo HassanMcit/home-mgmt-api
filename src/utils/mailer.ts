@@ -10,6 +10,7 @@ export const transporter = nodemailer.createTransport({
 
 export const sendEmail = async (to: string, subject: string, html: string) => {
   try {
+    console.log(`[Mailer] Sending email to: ${to} | Subject: ${subject}`);
     await transporter.sendMail({
       from: `"مدبّر | إدارة المنزل" <${process.env.EMAIL_USER}>`,
       to,
