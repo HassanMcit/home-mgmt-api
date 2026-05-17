@@ -1,4 +1,9 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Force Node to use IPv4! Render servers do not support outbound IPv6 for SMTP.
+// This single line fixes the ENETUNREACH error.
+dns.setDefaultResultOrder('ipv4first');
 
 if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
   console.error('❌ [Mailer] Critical Error: EMAIL_USER or EMAIL_PASS not found in environment variables!');
