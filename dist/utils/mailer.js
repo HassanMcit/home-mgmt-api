@@ -17,6 +17,9 @@ exports.transporter = nodemailer_1.default.createTransport({
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
     },
+    connectionTimeout: 5000, // 5 seconds max to connect
+    greetingTimeout: 5000, // 5 seconds max for greeting
+    socketTimeout: 10000, // 10 seconds max for any socket operation
 });
 const sendEmail = async (to, subject, html) => {
     try {

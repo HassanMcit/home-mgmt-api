@@ -100,22 +100,22 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
 
     console.log(`[Admin Approval] Attempting to send welcome email to TARGET: ${request.email}`);
     
-    let emailSent = false;
-    try {
-      emailSent = await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
-      if (emailSent) {
-        console.log(`[Admin Approval] Welcome email DISPATCHED successfully to: ${request.email}`);
-      } else {
-        console.warn(`[Admin Approval] Welcome email FAILED for: ${request.email}`);
-      }
-    } catch (err) {
-      console.error(`[Admin Approval] Critical Error sending email to ${request.email}:`, err);
-    }
+    // FIRE AND FORGET: Don't await sendEmail so the response is instant
+    // We run it in the background
+    sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml)
+      .then((emailSent) => {
+        if (emailSent) {
+          console.log(`[Admin Approval] Welcome email DISPATCHED successfully to: ${request.email}`);
+        } else {
+          console.warn(`[Admin Approval] Welcome email FAILED for: ${request.email}`);
+        }
+      })
+      .catch((err) => {
+        console.error(`[Admin Approval] Critical Error sending email to ${request.email}:`, err);
+      });
 
     res.json({ 
-      message: emailSent 
-        ? `تم قبول طلب تسجيل ${request.name} بنجاح وإرسال بريد ترحيبي` 
-        : `تم قبول طلب تسجيل ${request.name} بنجاح، لكن تعذر إرسال بريد ترحيبي`
+      message: `تم قبول طلب تسجيل ${request.name} بنجاح` 
     });
   } catch (error: any) {
     console.error('[Admin Approval] Error:', error);

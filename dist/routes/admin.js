@@ -91,23 +91,22 @@ router.post('/requests/:id/approve', auth_1.authenticate, auth_1.requireAdmin, a
       </div>
     `;
         console.log(`[Admin Approval] Attempting to send welcome email to TARGET: ${request.email}`);
-        let emailSent = false;
-        try {
-            emailSent = await (0, mailer_1.sendEmail)(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
+        // FIRE AND FORGET: Don't await sendEmail so the response is instant
+        // We run it in the background
+        (0, mailer_1.sendEmail)(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml)
+            .then((emailSent) => {
             if (emailSent) {
                 console.log(`[Admin Approval] Welcome email DISPATCHED successfully to: ${request.email}`);
             }
             else {
                 console.warn(`[Admin Approval] Welcome email FAILED for: ${request.email}`);
             }
-        }
-        catch (err) {
+        })
+            .catch((err) => {
             console.error(`[Admin Approval] Critical Error sending email to ${request.email}:`, err);
-        }
+        });
         res.json({
-            message: emailSent
-                ? `تم قبول طلب تسجيل ${request.name} بنجاح وإرسال بريد ترحيبي`
-                : `تم قبول طلب تسجيل ${request.name} بنجاح، لكن تعذر إرسال بريد ترحيبي`
+            message: `تم قبول طلب تسجيل ${request.name} بنجاح`
         });
     }
     catch (error) {
