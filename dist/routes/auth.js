@@ -68,9 +68,34 @@ router.post('/register-request', async (req, res) => {
             return;
         }
         const hashedPassword = await bcryptjs_1.default.hash(password, 12);
-        await prisma.registrationRequest.create({
+        const newRequest = await prisma.registrationRequest.create({
             data: { name, email, password: hashedPassword },
         });
+        // Notify admins
+        try {
+            const admins = await prisma.user.findMany({ where: { role: 'admin' } });
+            const { sendEmail } = require('../utils/mailer');
+            const backendUrl = process.env.API_URL || 'https://home-mgmt-api.onrender.com';
+            const emailHtml = `
+        <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; max-width: 500px; margin: auto;">
+          <h2 style="color: #4f46e5; margin-top: 0;">طلب تسجيل جديد 📝</h2>
+          <p>يوجد مستخدم جديد طلب الانضمام إلى نظام إدارة المنزل:</p>
+          <div style="background: #f8fafc; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+            <p><strong>الاسم:</strong> ${name}</p>
+            <p><strong>البريد الإلكتروني:</strong> ${email}</p>
+          </div>
+          <p>يمكنك قبول الطلب فوراً بضغطة زر من هنا:</p>
+          <a href="${backendUrl}/api/admin/requests/${newRequest.id}/quick-approve" style="display: block; text-align: center; background: #4f46e5; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold;">✅ قبول طلب التسجيل</a>
+          <p style="margin-top: 20px; font-size: 13px; color: #64748b;">أو يمكنك تسجيل الدخول إلى لوحة التحكم لمراجعة الطلب.</p>
+        </div>
+      `;
+            for (const admin of admins) {
+                await sendEmail(admin.email, 'طلب انضمام جديد - مدبّر', emailHtml);
+            }
+        }
+        catch (e) {
+            console.error('Error notifying admins:', e);
+        }
         res.status(201).json({ message: 'تم إرسال طلب التسجيل بنجاح. سيتم مراجعته من قبل المدير.' });
     }
     catch (error) {
@@ -233,6 +258,7 @@ router.get('/test-smtp', async (req, res) => {
         res.json({
             status: 'success',
             message: 'SMTP connection is working perfectly!',
+            scriptUrl: process.env.GOOGLE_SCRIPT_URL ? 'Set' : 'Missing',
             user: process.env.EMAIL_USER ? 'Set' : 'Missing',
             pass: process.env.EMAIL_PASS ? 'Set (Length: ' + process.env.EMAIL_PASS.length + ')' : 'Missing'
         });

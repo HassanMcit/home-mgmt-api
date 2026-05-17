@@ -120,6 +120,63 @@ router.post('/requests/:id/approve', auth_1.authenticate, auth_1.requireAdmin, a
         }
     }
 });
+// Quick Approve via Email Link (GET request)
+router.get('/requests/:id/quick-approve', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const request = await prisma.registrationRequest.findUnique({ where: { id: id } });
+        if (!request) {
+            res.send('<h1 style="text-align: center; margin-top: 50px;">الطلب غير موجود</h1>');
+            return;
+        }
+        if (request.status !== 'pending') {
+            res.send('<h1 style="text-align: center; margin-top: 50px;">تمت معالجة هذا الطلب مسبقاً (مقبول/مرفوض)</h1>');
+            return;
+        }
+        await prisma.$transaction([
+            prisma.user.create({
+                data: {
+                    name: request.name,
+                    email: request.email,
+                    password: request.password,
+                    role: 'member',
+                },
+            }),
+            prisma.registrationRequest.update({
+                where: { id: id },
+                data: { status: 'approved' },
+            })
+        ]);
+        const welcomeHtml = `
+      <div dir="rtl" style="font-family: 'Cairo', sans-serif; background-color: #f8fafc; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; max-width: 600px; margin: auto;">
+        <div style="background-color: #1e1b4b; color: white; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 20px;">
+          <h1 style="margin: 0;">أهلاً بك في عائلة مدبّر! 🎉</h1>
+          <p style="opacity: 0.9; margin-top: 10px;">تم تفعيل حسابك بنجاح يا ${request.name}</p>
+        </div>
+        <div style="text-align: center;">
+          <a href="${process.env.FRONTEND_URL || 'https://ha-smart-home.vercel.app'}/login" style="background-color: #4f46e5; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">ابدأ رحلتك المالية الآن</a>
+        </div>
+      </div>
+    `;
+        const { sendEmail } = require('../utils/mailer');
+        sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml).catch(console.error);
+        res.send(`
+      <div dir="rtl" style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+        <h1 style="color: green;">تم قبول طلب التسجيل بنجاح! ✅</h1>
+        <p>تم إرسال بريد إلكتروني ترحيبي للمستخدم.</p>
+        <a href="${process.env.FRONTEND_URL || 'https://ha-smart-home.vercel.app'}/dashboard/admin" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; text-decoration: none; border-radius: 5px;">العودة للوحة التحكم</a>
+      </div>
+    `);
+    }
+    catch (error) {
+        if (error.code === 'P2002') {
+            res.send('<h1 style="text-align: center; margin-top: 50px; color: red;">هذا البريد الإلكتروني مسجل بالفعل كمستخدم</h1>');
+        }
+        else {
+            res.send('<h1 style="text-align: center; margin-top: 50px; color: red;">حدث خطأ في الخادم أثناء الموافقة</h1>');
+        }
+    }
+});
 // Reject registration request
 router.post('/requests/:id/reject', auth_1.authenticate, auth_1.requireAdmin, async (req, res) => {
     try {
