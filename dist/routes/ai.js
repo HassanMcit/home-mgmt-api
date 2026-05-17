@@ -98,7 +98,7 @@ router.get('/analysis', auth_1.authenticate, async (req, res) => {
             return;
         }
         const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const prompt = `أنت مستشار مالي خبير. قم بتحليل بيانات المصاريف الشهرية التالية وتقديم تقرير مفصل باللغة العربية.
 
 اسم المستخدم: ${user?.name || 'مستخدم النظام'}
@@ -121,11 +121,29 @@ ${sortedCategories.map(c => `- ${c.categoryAr}: ${c.amount.toFixed(2)} جنيه 
 5. توصيات للاستثمار بناءً على الوضع المالي
 
 اجعل التحليل عملياً ومحدداً مع أرقام وتوصيات واقعية. استخدم أسماء الفئات بالعربية.`;
-        const result = await model.generateContent(prompt);
-        if (!result || !result.response) {
-            throw new Error('فشل الحصول على رد من الذكاء الاصطناعي');
+        let aiAnalysis = '';
+        let quotaExceeded = false;
+        try {
+            const result = await model.generateContent(prompt);
+            if (!result || !result.response) {
+                throw new Error('فشل الحصول على رد من الذكاء الاصطناعي');
+            }
+            aiAnalysis = result.response.text();
         }
-        const aiAnalysis = result.response.text();
+        catch (aiError) {
+            console.error('AI generation error:', aiError?.status, aiError?.message?.substring(0, 200));
+            if (aiError?.status === 429 || aiError?.message?.includes('429')) {
+                aiAnalysis = '⚠️ خدمة التحليل الذكي غير متاحة حالياً بسبب الوصول للحد الأقصى للاستخدام المجاني. يُرجى المحاولة مرة أخرى لاحقاً أو التواصل مع المدير لتفعيل الخدمة.';
+                quotaExceeded = true;
+            }
+            else if (aiError?.status === 403 || aiError?.message?.includes('403')) {
+                aiAnalysis = '⚠️ خدمة التحليل الذكي تحتاج تفعيل. يُرجى التواصل مع المدير.';
+                quotaExceeded = true;
+            }
+            else {
+                throw aiError; // throw to outer catch
+            }
+        }
         res.json({
             month: m,
             year: y,
@@ -137,10 +155,11 @@ ${sortedCategories.map(c => `- ${c.categoryAr}: ${c.amount.toFixed(2)} جنيه 
             transactionCount: transactions.length,
             aiAnalysis,
             noApiKey: false,
+            ...(quotaExceeded && { quotaExceeded: true })
         });
     }
     catch (error) {
-        console.error('AI analysis error details:', error);
+        console.error('AI route general error:', error);
         res.status(500).json({
             message: 'حدث خطأ أثناء إجراء التحليل الذكي',
             details: error.message,
@@ -157,7 +176,7 @@ router.get('/tip', auth_1.authenticate, async (req, res) => {
             return;
         }
         const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent('أعطني نصيحة مالية عملية قصيرة ومفيدة باللغة العربية (جملة أو جملتين فقط) للمساعدة في إدارة الميزانية الأسرية.');
         res.json({ tip: result.response.text() });
     }

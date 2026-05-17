@@ -137,13 +137,27 @@ ${sortedCategories.map(c => `- ${c.categoryAr}: ${c.amount.toFixed(2)} جنيه 
 
 اجعل التحليل عملياً ومحدداً مع أرقام وتوصيات واقعية. استخدم أسماء الفئات بالعربية.`;
 
-    const result = await model.generateContent(prompt);
+    let aiAnalysis = '';
+    let quotaExceeded = false;
     
-    if (!result || !result.response) {
-      throw new Error('فشل الحصول على رد من الذكاء الاصطناعي');
+    try {
+      const result = await model.generateContent(prompt);
+      if (!result || !result.response) {
+        throw new Error('فشل الحصول على رد من الذكاء الاصطناعي');
+      }
+      aiAnalysis = result.response.text();
+    } catch (aiError: any) {
+      console.error('AI generation error:', aiError?.status, aiError?.message?.substring(0, 200));
+      if (aiError?.status === 429 || aiError?.message?.includes('429')) {
+        aiAnalysis = '⚠️ خدمة التحليل الذكي غير متاحة حالياً بسبب الوصول للحد الأقصى للاستخدام المجاني. يُرجى المحاولة مرة أخرى لاحقاً أو التواصل مع المدير لتفعيل الخدمة.';
+        quotaExceeded = true;
+      } else if (aiError?.status === 403 || aiError?.message?.includes('403')) {
+        aiAnalysis = '⚠️ خدمة التحليل الذكي تحتاج تفعيل. يُرجى التواصل مع المدير.';
+        quotaExceeded = true;
+      } else {
+        throw aiError; // throw to outer catch
+      }
     }
-
-    const aiAnalysis = result.response.text();
 
     res.json({
       month: m,
@@ -156,51 +170,16 @@ ${sortedCategories.map(c => `- ${c.categoryAr}: ${c.amount.toFixed(2)} جنيه 
       transactionCount: transactions.length,
       aiAnalysis,
       noApiKey: false,
+      ...(quotaExceeded && { quotaExceeded: true })
     });
-    } catch (error: any) {
-      console.error('AI analysis error details:', error?.status, error?.message?.substring(0, 200));
-      
-      // Handle quota/billing errors gracefully
-      if (error?.status === 429 || error?.message?.includes('429')) {
-        res.json({
-          month: m,
-          year: y,
-          monthName: monthNames[m - 1],
-          totalIncome,
-          totalExpenses,
-          balance: totalIncome - totalExpenses,
-          categoryBreakdown: sortedCategories,
-          transactionCount: transactions.length,
-          aiAnalysis: '⚠️ خدمة التحليل الذكي غير متاحة حالياً بسبب الوصول للحد الأقصى للاستخدام المجاني. يُرجى المحاولة مرة أخرى لاحقاً أو التواصل مع المدير لتفعيل الخدمة.',
-          noApiKey: false,
-          quotaExceeded: true,
-        });
-        return;
-      }
-      
-      if (error?.status === 403 || error?.message?.includes('403')) {
-        res.json({
-          month: m,
-          year: y,
-          monthName: monthNames[m - 1],
-          totalIncome,
-          totalExpenses,
-          balance: totalIncome - totalExpenses,
-          categoryBreakdown: sortedCategories,
-          transactionCount: transactions.length,
-          aiAnalysis: '⚠️ خدمة التحليل الذكي تحتاج تفعيل. يُرجى التواصل مع المدير.',
-          noApiKey: false,
-          quotaExceeded: true,
-        });
-        return;
-      }
-      
-      res.status(500).json({ 
-        message: 'حدث خطأ أثناء إجراء التحليل الذكي',
-        details: error.message,
-        error: true 
-      });
-    }
+  } catch (error: any) {
+    console.error('AI route general error:', error);
+    res.status(500).json({ 
+      message: 'حدث خطأ أثناء إجراء التحليل الذكي',
+      details: error.message,
+      error: true 
+    });
+  }
 });
 
 // Get quick AI tip

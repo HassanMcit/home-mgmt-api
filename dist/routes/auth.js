@@ -161,15 +161,27 @@ router.post('/forgot-password', async (req, res) => {
         // Send Email
         const emailHtml = `
       <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 15px; max-width: 500px; margin: auto;">
-        <h2 style="color: #6366f1;">إعادة تعيين كلمة المرور</h2>
+        <h2 style="color: #6366f1;">إعادة تعيين كلمة المرور 🔐</h2>
+        <p>مرحباً ${user.name}،</p>
         <p>لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. استخدم الكود التالي:</p>
-        <div style="background: #f8fafc; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;">
-          <h1 style="margin: 0; letter-spacing: 5px; color: #1e293b; font-size: 32px;">${resetCode}</h1>
+        <div style="background: #f8fafc; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0; border: 2px dashed #6366f1;">
+          <h1 style="margin: 0; letter-spacing: 8px; color: #1e293b; font-size: 36px; font-weight: bold;">${resetCode}</h1>
         </div>
-        <p style="color: #64748b; font-size: 14px;">هذا الكود صالح لمدة 15 دقيقة فقط. إذا لم تطلب هذا التغيير، يرجى تجاهل الرسالة.</p>
+        <p style="color: #64748b; font-size: 14px;">⏰ هذا الكود صالح لمدة <strong>15 دقيقة</strong> فقط.</p>
+        <p style="color: #64748b; font-size: 14px;">إذا لم تطلب هذا التغيير، يرجى تجاهل الرسالة.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        <p style="color: #94a3b8; font-size: 12px; text-align: center;">هذا الإيميل مرسل آلياً من نظام مدبّر لإدارة المنزل.</p>
       </div>
     `;
-        await (0, mailer_1.sendEmail)(email, 'رمز إعادة تعيين كلمة المرور', emailHtml);
+        console.log(`[Forgot Password] Sending reset code to: ${email}`);
+        const emailSent = await (0, mailer_1.sendEmail)(email, 'رمز إعادة تعيين كلمة المرور - مدبّر', emailHtml);
+        if (!emailSent) {
+            console.error(`[Forgot Password] FAILED to send email to: ${email}. Code was: ${resetCode}`);
+            // Still return success message to user (don't leak info), but log the failure
+            res.json({ message: 'إذا كان البريد مسجلاً، ستصلك رسالة إعادة التعيين' });
+            return;
+        }
+        console.log(`[Forgot Password] Reset code sent successfully to: ${email}`);
         res.json({ message: 'تم إرسال رمز إعادة التعيين إلى بريدك الإلكتروني.' });
     }
     catch (error) {
