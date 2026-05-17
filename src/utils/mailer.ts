@@ -22,35 +22,45 @@ export const transporter = nodemailer.createTransport({
   socketTimeout: 10000,    // 10 seconds max for any socket operation
 });
 
+// We now use Google Apps Script over HTTPS to bypass Render's SMTP blocks
 export const sendEmail = async (to: string, subject: string, html: string) => {
   try {
-    const from = `"مدبّر | إدارة المنزل" <${process.env.EMAIL_USER}>`;
-    console.log(`\n📧 [Mailer] ====== EMAIL DISPATCH START ======`);
-    console.log(`📧 [Mailer] FROM: ${process.env.EMAIL_USER}`);
+    const scriptUrl = process.env.GOOGLE_SCRIPT_URL;
+    
+    if (!scriptUrl) {
+      console.warn('⚠️ [Mailer] GOOGLE_SCRIPT_URL is not set. Email will not be sent.');
+      return false;
+    }
+
+    console.log(`📧 [Mailer] ====== EMAIL DISPATCH START ======`);
+    console.log(`📧 [Mailer] VIA:  Google Apps Script Webhook`);
     console.log(`📧 [Mailer] TO:   ${to}`);
     console.log(`📧 [Mailer] SUBJ: ${subject}`);
     
-    // Verify transporter connection first
-    await transporter.verify();
-    console.log(`📧 [Mailer] SMTP connection verified ✅`);
-    
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject,
-      html,
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to,
+        subject,
+        html
+      }),
     });
-    
-    console.log(`📧 [Mailer] SUCCESS! MessageId: ${info.messageId}`);
-    console.log(`📧 [Mailer] ====== EMAIL DISPATCH END ========\n`);
-    return true;
-  } catch (error: any) {
-    console.error(`\n❌ [Mailer] ====== EMAIL FAILED ======`);
-    console.error(`❌ [Mailer] TO: ${to}`);
-    console.error(`❌ [Mailer] Error Code: ${error.code}`);
-    console.error(`❌ [Mailer] Error Message: ${error.message}`);
-    console.error(`❌ [Mailer] Full Error:`, error);
-    console.error(`❌ [Mailer] ============================\n`);
+
+    const result = await response.json();
+
+    if (result.status === 'success') {
+      console.log(`📧 [Mailer] SUCCESS! Email sent via Webhook.`);
+      console.log(`📧 [Mailer] ====== EMAIL DISPATCH END ========`);
+      return true;
+    } else {
+      console.error(`❌ [Mailer] Webhook returned error:`, result.message);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ [Mailer] Error sending via Webhook:', error);
     return false;
   }
 };
