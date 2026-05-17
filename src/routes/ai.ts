@@ -158,7 +158,43 @@ ${sortedCategories.map(c => `- ${c.categoryAr}: ${c.amount.toFixed(2)} جنيه 
       noApiKey: false,
     });
     } catch (error: any) {
-      console.error('AI analysis error details:', error);
+      console.error('AI analysis error details:', error?.status, error?.message?.substring(0, 200));
+      
+      // Handle quota/billing errors gracefully
+      if (error?.status === 429 || error?.message?.includes('429')) {
+        res.json({
+          month: m,
+          year: y,
+          monthName: monthNames[m - 1],
+          totalIncome,
+          totalExpenses,
+          balance: totalIncome - totalExpenses,
+          categoryBreakdown: sortedCategories,
+          transactionCount: transactions.length,
+          aiAnalysis: '⚠️ خدمة التحليل الذكي غير متاحة حالياً بسبب الوصول للحد الأقصى للاستخدام المجاني. يُرجى المحاولة مرة أخرى لاحقاً أو التواصل مع المدير لتفعيل الخدمة.',
+          noApiKey: false,
+          quotaExceeded: true,
+        });
+        return;
+      }
+      
+      if (error?.status === 403 || error?.message?.includes('403')) {
+        res.json({
+          month: m,
+          year: y,
+          monthName: monthNames[m - 1],
+          totalIncome,
+          totalExpenses,
+          balance: totalIncome - totalExpenses,
+          categoryBreakdown: sortedCategories,
+          transactionCount: transactions.length,
+          aiAnalysis: '⚠️ خدمة التحليل الذكي تحتاج تفعيل. يُرجى التواصل مع المدير.',
+          noApiKey: false,
+          quotaExceeded: true,
+        });
+        return;
+      }
+      
       res.status(500).json({ 
         message: 'حدث خطأ أثناء إجراء التحليل الذكي',
         details: error.message,

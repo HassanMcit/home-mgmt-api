@@ -1,30 +1,42 @@
 import dotenv from 'dotenv';
 import path from 'path';
-import nodemailer from 'nodemailer';
-
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+import { sendEmail, transporter } from '../src/utils/mailer';
 
-async function test() {
-  console.log('Testing Email for:', process.env.EMAIL_USER);
+async function testMailer() {
+  console.log('Testing Mailer Configuration...');
+  console.log('EMAIL_USER:', process.env.EMAIL_USER);
+  console.log('EMAIL_PASS length:', process.env.EMAIL_PASS?.length);
+
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: 'hassan.a173784@gmail.com',
-      subject: 'Test Email from HA Home Management',
-      text: 'This is a test email to verify the mailer configuration.',
-    });
-    console.log('✅ Email sent successfully!');
-  } catch (error: any) {
-    console.error('❌ Mailer Error:', error.message);
+    console.log('Verifying transporter...');
+    await transporter.verify();
+    console.log('✅ Transporter verified successfully!');
+  } catch (error) {
+    console.error('❌ Transporter verification failed:', error);
+    return;
+  }
+
+  console.log('\nSending test email...');
+  const testHtml = `
+    <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 20px;">
+      <h2>تجربة إرسال بريد</h2>
+      <p>هذا إيميل تجريبي من النظام.</p>
+    </div>
+  `;
+  
+  // Use a known email to test sending. 
+  // You can use the EMAIL_USER to send an email to itself.
+  const targetEmail = process.env.EMAIL_USER || 'test@example.com';
+  
+  const success = await sendEmail(targetEmail, 'اختبار إرسال الإيميل - مدبّر', testHtml);
+  
+  if (success) {
+    console.log('✅ Test email sent successfully to:', targetEmail);
+  } else {
+    console.log('❌ Test email failed to send.');
   }
 }
 
-test();
+testMailer();
