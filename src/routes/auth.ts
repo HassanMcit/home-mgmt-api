@@ -263,4 +263,27 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
   }
 });
 
+// Diagnostic endpoint for testing SMTP connection from production
+router.get('/test-smtp', async (req: Request, res: Response) => {
+  try {
+    const { transporter } = require('../utils/mailer');
+    await transporter.verify();
+    res.json({ 
+      status: 'success', 
+      message: 'SMTP connection is working perfectly!',
+      user: process.env.EMAIL_USER ? 'Set' : 'Missing',
+      pass: process.env.EMAIL_PASS ? 'Set (Length: ' + process.env.EMAIL_PASS.length + ')' : 'Missing'
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      status: 'error', 
+      message: error.message,
+      code: error.code,
+      response: error.response,
+      user: process.env.EMAIL_USER ? 'Set' : 'Missing',
+      pass: process.env.EMAIL_PASS ? 'Set (Length: ' + process.env.EMAIL_PASS?.length + ')' : 'Missing'
+    });
+  }
+});
+
 export default router;
