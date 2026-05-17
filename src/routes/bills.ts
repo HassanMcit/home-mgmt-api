@@ -19,6 +19,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     const bills = await prisma.bill.findMany({
       where,
       orderBy: { dueDate: 'asc' },
+      include: { user: { select: { name: true } } }
     });
 
     res.json(bills);
