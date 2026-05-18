@@ -149,6 +149,77 @@ export const sendDailyBillReminders = async () => {
   }
 };
 
+export const sendScheduledReminderEmails = async () => {
+  try {
+    const now = new Date();
+    // Find reminders that are due (reminderAt <= now) and email not yet sent
+    const dueReminders = await prisma.reminder.findMany({
+      where: {
+        reminderAt: { lte: now },
+        emailSent: false,
+        isCompleted: false,
+      },
+      include: { user: true },
+    });
+
+    for (const reminder of dueReminders) {
+      const priorityLabel =
+        reminder.priority === 'high' ? '🔴 عالية'
+        : reminder.priority === 'low' ? '🟢 منخفضة'
+        : '🟡 متوسطة';
+
+      const html = `
+        <div dir="rtl" style="font-family: 'Cairo', sans-serif; background-color: #f4f7f6; padding: 20px; border-radius: 10px; max-width: 600px; margin: auto;">
+          <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 30px 20px; border-radius: 20px; text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 48px; margin-bottom: 10px;">🔔</div>
+            <h1 style="margin: 0; font-size: 22px;">تذكير: ${reminder.title}</h1>
+            <p style="opacity: 0.85; margin-top: 8px; font-size: 14px;">أهلاً يا ${reminder.user.name}، هذا تذكير مجدول من نظام مدبّر</p>
+          </div>
+
+          <div style="padding: 25px; background: white; border-radius: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+            <div style="margin-bottom: 15px; padding: 12px 16px; background: #f8fafc; border-radius: 12px; border-right: 4px solid #6366f1;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">العنوان</p>
+              <p style="margin: 4px 0 0 0; font-weight: bold; color: #1e293b; font-size: 16px;">${reminder.title}</p>
+            </div>
+
+            ${reminder.description ? `
+            <div style="margin-bottom: 15px; padding: 12px 16px; background: #f8fafc; border-radius: 12px;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">التفاصيل</p>
+              <p style="margin: 4px 0 0 0; color: #475569;">${reminder.description}</p>
+            </div>
+            ` : ''}
+
+            <div style="margin-bottom: 15px; padding: 12px 16px; background: #f8fafc; border-radius: 12px;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">الأولوية</p>
+              <p style="margin: 4px 0 0 0; font-weight: bold;">${priorityLabel}</p>
+            </div>
+
+            <div style="margin-top: 25px; padding: 20px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-radius: 15px; text-align: center;">
+              <p style="margin: 0; color: #166534; font-weight: bold;">⏰ وقت التذكير: ${now.toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}</p>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
+            <p>شكراً لاستخدامك نظام مدبّر لإدارة المنزل. 🏠</p>
+          </div>
+        </div>
+      `;
+
+      await sendEmail(reminder.user.email, `🔔 تذكير: ${reminder.title}`, html);
+
+      // Mark email as sent
+      await prisma.reminder.update({
+        where: { id: reminder.id },
+        data: { emailSent: true },
+      });
+
+      console.log(`[Reminder] Email sent to ${reminder.user.email} for reminder: ${reminder.title}`);
+    }
+  } catch (error) {
+    console.error('[Reminder] Error sending scheduled reminders:', error);
+  }
+};
+
 export const initMonthlyReportCron = () => {
   // Day 30 at 9 AM for monthly report
   cron.schedule('0 9 30 * *', () => {
@@ -159,6 +230,11 @@ export const initMonthlyReportCron = () => {
   cron.schedule('0 9 * * *', () => {
     sendDailyBillReminders();
   });
+
+  // Every minute: check for due reminder emails
+  cron.schedule('* * * * *', () => {
+    sendScheduledReminderEmails();
+  });
   
-  console.log('📅 Financial cron jobs (Monthly day 30 & Daily 9AM) initialized');
+  console.log('📅 Financial cron jobs (Monthly day 30, Daily 9AM, Reminders every 1min) initialized');
 };

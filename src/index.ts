@@ -9,6 +9,7 @@ import savingRoutes from './routes/savings';
 import billRoutes from './routes/bills';
 import adminRoutes from './routes/admin';
 import aiRoutes from './routes/ai';
+import reminderRoutes from './routes/reminders';
 import { initMonthlyReportCron } from './services/reportService';
 
 process.env.TZ = 'UTC';
@@ -35,6 +36,7 @@ app.use('/api/savings', savingRoutes);
 app.use('/api/bills', billRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'HA Home Management API is running' });
