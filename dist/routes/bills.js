@@ -13,6 +13,31 @@ router.get('/', auth_1.authenticate, async (req, res) => {
         if (req.user.role !== 'admin') {
             where.userId = req.user.id;
         }
+        // Lazy reset recurring bills that were paid in previous months
+        const now = new Date();
+        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const billsToReset = await prisma.bill.findMany({
+            where: {
+                ...where,
+                isRecurring: true,
+                isPaid: true,
+                dueDate: {
+                    lt: startOfCurrentMonth
+                }
+            }
+        });
+        for (const bill of billsToReset) {
+            const nextDueDate = new Date(bill.dueDate);
+            nextDueDate.setMonth(now.getMonth());
+            nextDueDate.setFullYear(now.getFullYear());
+            await prisma.bill.update({
+                where: { id: bill.id },
+                data: {
+                    isPaid: false,
+                    dueDate: nextDueDate
+                }
+            });
+        }
         if (isPaid !== undefined)
             where.isPaid = isPaid === 'true';
         const bills = await prisma.bill.findMany({
@@ -84,32 +109,6 @@ router.put('/:id/toggle', auth_1.authenticate, async (req, res) => {
                         createdById: req.user.id
                     }
                 });
-                // 3. If bill is RECURRING, create the next one for next month
-                if (existing.isRecurring) {
-                    const nextDueDate = new Date(existing.dueDate);
-                    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-                    // Check if a bill with same name and next month date already exists to avoid duplicates
-                    const alreadyExists = await tx.bill.findFirst({
-                        where: {
-                            userId: existing.userId,
-                            name: existing.name,
-                            dueDate: nextDueDate
-                        }
-                    });
-                    if (!alreadyExists) {
-                        await tx.bill.create({
-                            data: {
-                                userId: existing.userId,
-                                name: existing.name,
-                                amount: existing.amount,
-                                dueDate: nextDueDate,
-                                isRecurring: true,
-                                isPaid: false,
-                                category: existing.category
-                            }
-                        });
-                    }
-                }
             }
             return updatedBill;
         });
