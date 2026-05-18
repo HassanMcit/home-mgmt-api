@@ -34,7 +34,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 // GET single reminder
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const reminder = await prisma.reminder.findFirst({
       where: { id, userId: req.user!.id },
@@ -84,7 +84,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 // UPDATE reminder
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { title, description, reminderAt, priority, isCompleted } = req.body;
 
     const existing = await prisma.reminder.findFirst({
@@ -123,7 +123,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
 // TOGGLE complete/incomplete
 router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const existing = await prisma.reminder.findFirst({
       where: { id, userId: req.user!.id },
@@ -149,7 +149,7 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
 // DELETE reminder
 router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const existing = await prisma.reminder.findFirst({
       where: { id, userId: req.user!.id },

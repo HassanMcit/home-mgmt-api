@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requireAdmin = exports.authenticate = void 0;
+exports.requireAdmin = exports.isAdmin = exports.authenticate = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const authenticate = (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -22,8 +22,10 @@ const authenticate = (req, res, next) => {
     }
 };
 exports.authenticate = authenticate;
+const isAdmin = (role) => role === 'admin' || role === 'super_admin';
+exports.isAdmin = isAdmin;
 const requireAdmin = (req, res, next) => {
-    if (!req.user || req.user.role !== 'admin') {
+    if (!req.user || !(0, exports.isAdmin)(req.user.role)) {
         res.status(403).json({ message: 'غير مسموح - هذه الصفحة للمدير فقط' });
         return;
     }

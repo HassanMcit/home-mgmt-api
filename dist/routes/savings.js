@@ -9,7 +9,7 @@ const prisma = new client_1.PrismaClient();
 router.get('/', auth_1.authenticate, async (req, res) => {
     try {
         const where = {};
-        if (req.user.role !== 'admin') {
+        if (!(0, auth_1.isAdmin)(req.user.role)) {
             where.userId = req.user.id;
         }
         const savings = await prisma.saving.findMany({

@@ -7,5 +7,6 @@ export interface AuthRequest extends Request {
     };
 }
 export declare const authenticate: (req: AuthRequest, res: Response, next: NextFunction) => void;
+export declare const isAdmin: (role?: string) => boolean;
 export declare const requireAdmin: (req: AuthRequest, res: Response, next: NextFunction) => void;
 //# sourceMappingURL=auth.d.ts.map

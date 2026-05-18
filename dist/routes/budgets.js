@@ -20,7 +20,7 @@ router.get('/', auth_1.authenticate, async (req, res) => {
         if (isNaN(y) || y < 2000 || y > 2100)
             y = now.getFullYear();
         const whereBudget = {};
-        if (req.user.role !== 'admin') {
+        if (!(0, auth_1.isAdmin)(req.user.role)) {
             whereBudget.userId = req.user.id;
         }
         else if (userId && userId !== 'all' && userId !== 'undefined') {
@@ -35,7 +35,7 @@ router.get('/', auth_1.authenticate, async (req, res) => {
             type: 'expense',
             date: { gte: startDate, lte: endDate },
         };
-        if (req.user.role !== 'admin') {
+        if (!(0, auth_1.isAdmin)(req.user.role)) {
             whereTransaction.userId = req.user.id;
         }
         else if (userId && userId !== 'all' && userId !== 'undefined') {
@@ -83,7 +83,7 @@ router.post('/', auth_1.authenticate, auth_1.requireAdmin, async (req, res) => {
         // Force Admin to specify a user explicitly if they are doing it for someone else
         // Default to req.user!.id if no targetUserId provided or if not admin
         let userId = req.user.id;
-        if (req.user.role === 'admin' && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
+        if ((0, auth_1.isAdmin)(req.user.role) && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
             userId = targetUserId;
         }
         console.log(`[Budget POST] Assigning for User: ${userId}, Cat: ${category}, Amt: ${amount}`);

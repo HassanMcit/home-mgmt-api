@@ -8,10 +8,14 @@ const prisma = new client_1.PrismaClient();
 // Get all bills
 router.get('/', auth_1.authenticate, async (req, res) => {
     try {
-        const { isPaid } = req.query;
+        const { isPaid, userId } = req.query;
         const where = {};
-        if (req.user.role !== 'admin') {
+        if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
             where.userId = req.user.id;
+        }
+        else if (userId && userId !== 'all') {
+            // Admin can filter by specific user
+            where.userId = userId;
         }
         // Lazy reset recurring bills that were paid in previous months
         const now = new Date();
@@ -79,7 +83,7 @@ router.put('/:id/toggle', auth_1.authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const where = { id: id };
-        if (req.user.role !== 'admin') {
+        if (!(0, auth_1.isAdmin)(req.user.role)) {
             where.userId = req.user.id;
         }
         const existing = await prisma.bill.findFirst({ where });
@@ -125,7 +129,7 @@ router.put('/:id', auth_1.authenticate, async (req, res) => {
         const { id } = req.params;
         const { name, amount, dueDate, isRecurring, category } = req.body;
         const where = { id: id };
-        if (req.user.role !== 'admin') {
+        if (!(0, auth_1.isAdmin)(req.user.role)) {
             where.userId = req.user.id;
         }
         const existing = await prisma.bill.findFirst({ where });
@@ -155,7 +159,7 @@ router.delete('/:id', auth_1.authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const where = { id: id };
-        if (req.user.role !== 'admin') {
+        if (!(0, auth_1.isAdmin)(req.user.role)) {
             where.userId = req.user.id;
         }
         const existing = await prisma.bill.findFirst({ where });

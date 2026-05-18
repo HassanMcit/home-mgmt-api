@@ -13,7 +13,7 @@ router.get('/', auth_1.authenticate, async (req, res) => {
     try {
         const { userId, limit } = req.query;
         const where = {};
-        if (req.user.role === 'admin') {
+        if ((0, auth_1.isAdmin)(req.user.role)) {
             if (userId && userId !== 'all' && userId !== 'undefined' && userId !== '') {
                 where.userId = userId;
             }
@@ -39,7 +39,7 @@ router.get('/stats', auth_1.authenticate, async (req, res) => {
         const { userId: queryUserId, month, year } = req.query;
         // Determine which user's stats to fetch
         let userId = req.user.id;
-        if (req.user.role === 'admin' && queryUserId && queryUserId !== 'all' && queryUserId !== 'undefined' && queryUserId !== '') {
+        if ((0, auth_1.isAdmin)(req.user.role) && queryUserId && queryUserId !== 'all' && queryUserId !== 'undefined' && queryUserId !== '') {
             userId = queryUserId;
         }
         const now = new Date();
@@ -99,7 +99,7 @@ router.post('/', auth_1.authenticate, async (req, res) => {
         }
         // Determine target user
         let userId = req.user.id;
-        if (req.user.role === 'admin' && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
+        if ((0, auth_1.isAdmin)(req.user.role) && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
             userId = targetUserId;
         }
         const transaction = await prisma.transaction.create({
@@ -130,7 +130,7 @@ router.delete('/:id', auth_1.authenticate, async (req, res) => {
             res.status(404).json({ message: 'المعاملة غير موجودة' });
             return;
         }
-        if (req.user.role !== 'admin' && transaction.userId !== req.user.id) {
+        if (!(0, auth_1.isAdmin)(req.user.role) && transaction.userId !== req.user.id) {
             res.status(403).json({ message: 'غير مصرح لك بحذف هذه المعاملة' });
             return;
         }
