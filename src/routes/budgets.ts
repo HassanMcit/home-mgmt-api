@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate, AuthRequest, requireAdmin } from '../middleware/auth';
+import { authenticate, AuthRequest, requireAdmin, isAdmin } from '../middleware/auth';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -18,7 +18,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     if (isNaN(y) || y < 2000 || y > 2100) y = now.getFullYear();
 
     const whereBudget: any = {};
-    if (req.user!.role !== 'admin') {
+    if (!isAdmin(req.user!.role)) {
       whereBudget.userId = req.user!.id;
     } else if (userId && userId !== 'all' && userId !== 'undefined') {
       whereBudget.userId = userId as string;
@@ -36,7 +36,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
       date: { gte: startDate, lte: endDate },
     };
 
-    if (req.user!.role !== 'admin') {
+    if (!isAdmin(req.user!.role)) {
       whereTransaction.userId = req.user!.id;
     } else if (userId && userId !== 'all' && userId !== 'undefined') {
       whereTransaction.userId = userId as string;
@@ -89,7 +89,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
     // Force Admin to specify a user explicitly if they are doing it for someone else
     // Default to req.user!.id if no targetUserId provided or if not admin
     let userId = req.user!.id;
-    if (req.user!.role === 'admin' && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
+    if (isAdmin(req.user!.role) && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
       userId = targetUserId;
     }
 

@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, isAdmin } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const where: any = {};
-    if (req.user!.role !== 'admin') {
+    if (!isAdmin(req.user!.role)) {
       where.userId = req.user!.id;
     }
 

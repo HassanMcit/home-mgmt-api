@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 
 // TEST ROUTE: Trigger monthly report manually
 router.post('/test-report', authenticate, async (req: AuthRequest, res: Response) => {
-  if (req.user!.role !== 'admin') {
+  if (req.user!.role !== 'admin' && req.user!.role !== 'super_admin') {
     return res.status(403).json({ message: 'غير مصرح لك' });
   }
   await generateAndSendMonthlyReports();

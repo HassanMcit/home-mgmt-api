@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, isAdmin } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -11,7 +11,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     const { isPaid, userId } = req.query;
 
     const where: any = {};
-    if (req.user!.role !== 'admin') {
+    if (req.user!.role !== 'admin' && req.user!.role !== 'super_admin') {
       where.userId = req.user!.id;
     } else if (userId && userId !== 'all') {
       // Admin can filter by specific user
@@ -93,7 +93,7 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
     const { id } = req.params;
 
     const where: any = { id: id as string };
-    if (req.user!.role !== 'admin') {
+    if (!isAdmin(req.user!.role)) {
       where.userId = req.user!.id;
     }
 
@@ -147,7 +147,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
     const { name, amount, dueDate, isRecurring, category } = req.body;
 
     const where: any = { id: id as string };
-    if (req.user!.role !== 'admin') {
+    if (!isAdmin(req.user!.role)) {
       where.userId = req.user!.id;
     }
 
@@ -182,7 +182,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
     const { id } = req.params;
 
     const where: any = { id: id as string };
-    if (req.user!.role !== 'admin') {
+    if (!isAdmin(req.user!.role)) {
       where.userId = req.user!.id;
     }
 

@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticate, AuthRequest } from '../middleware/auth';
+import { authenticate, AuthRequest, isAdmin } from '../middleware/auth';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -11,7 +11,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     const { userId, limit } = req.query;
     const where: any = {};
 
-    if (req.user!.role === 'admin') {
+    if (isAdmin(req.user!.role)) {
       if (userId && userId !== 'all' && userId !== 'undefined' && userId !== '') {
         where.userId = userId as string;
       }
@@ -39,7 +39,7 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Prom
     
     // Determine which user's stats to fetch
     let userId = req.user!.id;
-    if (req.user!.role === 'admin' && queryUserId && queryUserId !== 'all' && queryUserId !== 'undefined' && queryUserId !== '') {
+    if (isAdmin(req.user!.role) && queryUserId && queryUserId !== 'all' && queryUserId !== 'undefined' && queryUserId !== '') {
       userId = queryUserId as string;
     }
 
@@ -106,7 +106,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 
     // Determine target user
     let userId = req.user!.id;
-    if (req.user!.role === 'admin' && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
+    if (isAdmin(req.user!.role) && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
       userId = targetUserId;
     }
 
@@ -141,7 +141,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
       return;
     }
 
-    if (req.user!.role !== 'admin' && transaction.userId !== req.user!.id) {
+    if (!isAdmin(req.user!.role) && transaction.userId !== req.user!.id) {
       res.status(403).json({ message: 'غير مصرح لك بحذف هذه المعاملة' });
       return;
     }

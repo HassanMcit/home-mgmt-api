@@ -30,8 +30,11 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   }
 };
 
+export const isAdmin = (role?: string): boolean =>
+  role === 'admin' || role === 'super_admin';
+
 export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  if (!req.user || req.user.role !== 'admin') {
+  if (!req.user || !isAdmin(req.user.role)) {
     res.status(403).json({ message: 'غير مسموح - هذه الصفحة للمدير فقط' });
     return;
   }
