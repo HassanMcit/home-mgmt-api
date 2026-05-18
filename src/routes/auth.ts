@@ -88,7 +88,7 @@ router.post('/register-request', async (req: Request, res: Response): Promise<vo
       const admins = await prisma.user.findMany({ where: { role: 'admin' } });
       const { sendEmail } = require('../utils/mailer');
       const backendUrl = process.env.API_URL || 'https://home-mgmt-api.onrender.com';
-      
+
       const emailHtml = `
         <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; max-width: 500px; margin: auto;">
           <h2 style="color: #4f46e5; margin-top: 0;">طلب تسجيل جديد 📝</h2>
@@ -231,7 +231,7 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
 
     console.log(`[Forgot Password] Sending reset code to: ${email}`);
     const emailSent = await sendEmail(email, 'رمز إعادة تعيين كلمة المرور - مدبّر', emailHtml);
-    
+
     if (!emailSent) {
       console.error(`[Forgot Password] FAILED to send email to: ${email}. Code was: ${resetCode}`);
       // Still return success message to user (don't leak info), but log the failure
@@ -295,16 +295,16 @@ router.get('/test-smtp', async (req: Request, res: Response) => {
   try {
     const { transporter } = require('../utils/mailer');
     await transporter.verify();
-    res.json({ 
-      status: 'success', 
+    res.json({
+      status: 'success',
       message: 'SMTP connection is working perfectly!',
       scriptUrl: process.env.GOOGLE_SCRIPT_URL ? 'Set' : 'Missing',
       user: process.env.EMAIL_USER ? 'Set' : 'Missing',
       pass: process.env.EMAIL_PASS ? 'Set (Length: ' + process.env.EMAIL_PASS.length + ')' : 'Missing'
     });
   } catch (error: any) {
-    res.status(500).json({ 
-      status: 'error', 
+    res.status(500).json({
+      status: 'error',
       message: error.message,
       code: error.code,
       response: error.response,

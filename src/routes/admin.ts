@@ -99,7 +99,7 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
     `;
 
     console.log(`[Admin Approval] Attempting to send welcome email to TARGET: ${request.email}`);
-    
+
     // FIRE AND FORGET: Don't await sendEmail so the response is instant
     // We run it in the background
     sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml)
@@ -114,8 +114,8 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
         console.error(`[Admin Approval] Critical Error sending email to ${request.email}:`, err);
       });
 
-    res.json({ 
-      message: `تم قبول طلب تسجيل ${request.name} بنجاح` 
+    res.json({
+      message: `تم قبول طلب تسجيل ${request.name} بنجاح`
     });
   } catch (error: any) {
     console.error('[Admin Approval] Error:', error);
@@ -238,7 +238,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req: AuthRequest, re
 router.delete('/users/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    
+
     // Prevent admin from deleting themselves
     if (id === req.user!.id) {
       res.status(400).json({ message: 'لا يمكنك حذف حسابك الخاص من هنا' });
