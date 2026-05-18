@@ -30,8 +30,24 @@ const sendEmail = async (to, subject, html) => {
     try {
         const scriptUrl = process.env.GOOGLE_SCRIPT_URL;
         if (!scriptUrl) {
-            console.warn('⚠️ [Mailer] GOOGLE_SCRIPT_URL is not set. Email will not be sent.');
-            return false;
+            console.warn('⚠️ [Mailer] GOOGLE_SCRIPT_URL is not set. Falling back to direct SMTP transporter...');
+            if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+                console.error('❌ [Mailer] Fallback failed: EMAIL_USER or EMAIL_PASS not set in environment variables!');
+                return false;
+            }
+            console.log(`📧 [Mailer] ====== EMAIL DISPATCH START ======`);
+            console.log(`📧 [Mailer] VIA:  Direct SMTP (Nodemailer)`);
+            console.log(`📧 [Mailer] TO:   ${to}`);
+            console.log(`📧 [Mailer] SUBJ: ${subject}`);
+            await exports.transporter.sendMail({
+                from: `"مدبّر" <${process.env.EMAIL_USER}>`,
+                to,
+                subject,
+                html
+            });
+            console.log(`📧 [Mailer] SUCCESS! Email sent via SMTP.`);
+            console.log(`📧 [Mailer] ====== EMAIL DISPATCH END ========`);
+            return true;
         }
         console.log(`📧 [Mailer] ====== EMAIL DISPATCH START ======`);
         console.log(`📧 [Mailer] VIA:  Google Apps Script Webhook`);
