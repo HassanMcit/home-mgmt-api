@@ -39,7 +39,41 @@ app.use('/api/ai', aiRoutes);
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'HA Home Management API is running' });
 });
-// Initialize Cron Jobs
+
+// Manual trigger endpoints (secured with CRON_SECRET)
+app.post('/api/cron/daily-reminders', async (req, res) => {
+  const secret = req.headers['x-cron-secret'];
+  if (secret !== process.env.CRON_SECRET) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  try {
+    const { sendDailyBillReminders } = await import('./services/reportService');
+    await sendDailyBillReminders();
+    res.json({ message: 'Daily reminders sent successfully' });
+  } catch (error) {
+    console.error('[Cron] Daily reminder error:', error);
+    res.status(500).json({ message: 'Failed to send reminders' });
+  }
+});
+
+app.post('/api/cron/monthly-report', async (req, res) => {
+  const secret = req.headers['x-cron-secret'];
+  if (secret !== process.env.CRON_SECRET) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  try {
+    const { generateAndSendMonthlyReports } = await import('./services/reportService');
+    await generateAndSendMonthlyReports();
+    res.json({ message: 'Monthly reports sent successfully' });
+  } catch (error) {
+    console.error('[Cron] Monthly report error:', error);
+    res.status(500).json({ message: 'Failed to send reports' });
+  }
+});
+
+// Initialize in-process Cron Jobs (backup for when service is awake)
 initMonthlyReportCron();
 
 app.listen(PORT, () => {

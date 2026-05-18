@@ -8,11 +8,14 @@ const prisma = new PrismaClient();
 // Get all bills
 router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { isPaid } = req.query;
+    const { isPaid, userId } = req.query;
 
     const where: any = {};
     if (req.user!.role !== 'admin') {
       where.userId = req.user!.id;
+    } else if (userId && userId !== 'all') {
+      // Admin can filter by specific user
+      where.userId = userId as string;
     }
 
     // Lazy reset recurring bills that were paid in previous months
