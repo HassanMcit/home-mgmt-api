@@ -1,8 +1,131 @@
 import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 import { sendEmail } from '../utils/mailer';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const prisma = new PrismaClient();
+
+const getDefaultSavingsTips = () => {
+  return `
+    <li>حاول تخصيص 20% من دخلك للمدخرات فور استلام الراتب.</li>
+    <li>راجع المصروفات غير الضرورية في بند (الترفيه والمطاعم).</li>
+    <li>تأكد من إلغاء أي اشتراكات لا تستخدمها بانتظام.</li>
+    <li>استخدم قاعدة الـ 24 ساعة قبل أي عملية شراء غير ضرورية.</li>
+  `;
+};
+
+const generateSavingsTipsWithAI = async (
+  userName: string,
+  totalIncome: number,
+  totalExpenses: number,
+  transactions: any[]
+): Promise<string> => {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+    return getDefaultSavingsTips();
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    
+    // Group transactions by category
+    const categories: Record<string, number> = {};
+    transactions
+      .filter(t => t.type === 'expense')
+      .forEach(t => {
+        categories[t.category] = (categories[t.category] || 0) + t.amount;
+      });
+
+    const categoryText = Object.entries(categories)
+      .map(([cat, amt]) => `- ${cat}: ${amt.toLocaleString()} ج.م`)
+      .join('\n');
+
+    const prompt = `أنت مستشار مالي خبير للأسرة ومساعد ذكي في تطبيق "مدبّر". قم بصياغة نصائح توفير وادخار مخصصة وعملية جداً باللغة العربية بناءً على البيانات المالية التالية للمستخدم "${userName}" هذا الشهر:
+- إجمالي الدخل: ${totalIncome.toLocaleString()} ج.م
+- إجمالي المصاريف: ${totalExpenses.toLocaleString()} ج.م
+- المتبقي (الصافي): ${(totalIncome - totalExpenses).toLocaleString()} ج.م
+- تفاصيل المصاريف حسب الفئة:
+${categoryText || 'لا توجد مصروفات مسجلة بعد'}
+
+المطلوب:
+أعطِ 4 نصائح/مقترحات مخصصة ومحددة بوضوح لكيفية توفير المال والادخار بشكل أفضل للمستقبل. 
+اجعل الرد كقائمة عناصر HTML (باستخدام علامات <li> فقط بدون علامات <ul> أو <ol> أو عناوين، حيث سيتم إدراجها داخل علامة <ul> جاهزة). 
+اجعل الأسلوب ودوداً وعملياً جداً ويشجع على الادخار، وركّز على الفئات الأكثر استهلاكاً إذا وُجدت.
+تجنب إضافة أي شرح أو مقدمة أو خاتمة، فقط ابدأ بكتابة علامات <li> مباشرة.`;
+
+    const response = await model.generateContent(prompt);
+    let text = response.response.text().trim();
+    
+    text = text.replace(/```html/g, '').replace(/```/g, '').trim();
+    if (text.includes('<li>')) {
+      return text;
+    }
+    
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    return lines.map(line => `<li>${line.replace(/^[*-]\s*/, '')}</li>`).join('\n');
+  } catch (error) {
+    console.error('[AI Savings Tips] Error generating AI tips:', error);
+    return getDefaultSavingsTips();
+  }
+};
+
+const billReminderHtml = (name: string, bills: any[]) => `
+<div dir="rtl" style="font-family: 'Cairo', Arial, sans-serif; background-color: #f4f7f6; padding: 24px; max-width: 600px; margin: auto; border-radius: 16px;">
+
+  <div style="background: linear-gradient(135deg, #1a1a35 0%, #2d2d5e 100%); border-radius: 20px; padding: 28px 24px; text-align: center; margin-bottom: 20px;">
+    <div style="font-size: 36px; margin-bottom: 8px;">⚠️</div>
+    <h1 style="margin: 0; font-size: 20px; color: #ffffff; font-weight: 900;">تذكير بالفواتير المستحقة</h1>
+    <p style="margin: 8px 0 0; color: rgba(255,255,255,0.7); font-size: 14px;">مدبّر - إدارة المنزل الذكية</p>
+  </div>
+
+  <div style="background: #ffffff; border-radius: 16px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+    <h2 style="color: #1e293b; font-size: 18px; margin: 0 0 16px; font-weight: 900;">
+      صباح الخير يا ${name} ☀️
+    </h2>
+    <p style="color: #475569; font-size: 14px; margin: 0 0 20px; line-height: 1.7;">
+      هذه قائمة فواتيرك غير المدفوعة حتى الآن. يرجى الدفع وتسجيلها في التطبيق.
+    </p>
+
+    <div style="border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
+      <div style="background: #f8fafc; padding: 10px 16px; display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0;">
+        <span style="font-weight: 900; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">الفاتورة</span>
+        <span style="font-weight: 900; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">المبلغ</span>
+      </div>
+      ${bills.map((b, i) => {
+        const late = new Date(b.dueDate) < new Date();
+        return `
+      <div style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: ${i < bills.length - 1 ? '1px solid #f1f5f9' : 'none'}; background: ${late ? '#fff5f5' : '#ffffff'};">
+        <div>
+          <div style="font-weight: 700; font-size: 14px; color: #1e293b;">${b.name}</div>
+          <div style="font-size: 12px; color: ${late ? '#ef4444' : '#94a3b8'}; margin-top: 2px;">
+            ${late ? '⚠️ متأخرة - ' : '📅 '}${new Date(b.dueDate).toLocaleDateString('ar-EG')}
+          </div>
+        </div>
+        <span style="font-weight: 900; font-size: 15px; color: ${late ? '#ef4444' : '#1e293b'};">${b.amount.toLocaleString()} ج.م</span>
+      </div>`;
+      }).join('')}
+    </div>
+
+    <div style="margin-top: 16px; padding: 12px 16px; background: #fef3c7; border-radius: 10px; border-right: 3px solid #f59e0b;">
+      <p style="margin: 0; font-size: 13px; color: #92400e; font-weight: 600;">
+        💡 إجمالي المستحق: <strong>${bills.reduce((s, b) => s + b.amount, 0).toLocaleString()} ج.م</strong>
+      </p>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-bottom: 20px;">
+    <a href="https://home-mgmt-frontend.onrender.com/dashboard/bills"
+       style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 900; font-size: 15px; box-shadow: 0 4px 15px rgba(245,158,11,0.3);">
+      سجّل الدفع الآن →
+    </a>
+  </div>
+
+  <div style="text-align: center; color: #94a3b8; font-size: 11px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+    <p style="margin: 0;">هذا إيميل تذكير يومي تلقائي من نظام مدبّر 🏠</p>
+  </div>
+</div>
+`;
 
 export const generateAndSendMonthlyReports = async () => {
   try {
@@ -43,12 +166,10 @@ export const generateAndSendMonthlyReports = async () => {
       
       const balance = totalIncome - totalExpenses;
       
+      const tipsHtml = await generateSavingsTipsWithAI(user.name, totalIncome, totalExpenses, transactions);
       let savingsTips = `
         <ul style="padding-right: 20px; color: #0f766e; line-height: 1.6;">
-          <li>حاول تخصيص 20% من دخلك للمدخرات فور استلام الراتب.</li>
-          <li>راجع المصروفات غير الضرورية في بند (الترفيه والمطاعم).</li>
-          <li>تأكد من إلغاء أي اشتراكات لا تستخدمها بانتظام.</li>
-          <li>استخدم قاعدة الـ 24 ساعة قبل أي عملية شراء غير ضرورية.</li>
+          ${tipsHtml}
         </ul>
       `;
 
@@ -125,23 +246,8 @@ export const sendDailyBillReminders = async () => {
       const unpaidBills = allUnpaidBills;
 
       if (unpaidBills.length > 0) {
-        const html = `
-          <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 20px; border-radius: 15px; border: 2px solid #ef4444; max-width: 500px; margin: auto;">
-            <h2 style="color: #ef4444; margin-top: 0;">صباح الخير يا ${user.name} ☀️</h2>
-            <p>نذكرك بوجود فواتير تستحق الدفع:</p>
-            <div style="background: #fef2f2; padding: 15px; border-radius: 10px;">
-              ${unpaidBills.map(b => `
-                <div style="padding: 10px 0; border-bottom: 1px solid #fee2e2;">
-                  <strong>${b.name}</strong> - <span style="color: #b91c1c;">${b.amount.toLocaleString()} ج.م</span><br>
-                  <small style="color: #7f1d1d;">تاريخ الاستحقاق: ${b.dueDate.toLocaleDateString('ar-EG')}</small>
-                </div>
-              `).join('')}
-            </div>
-            <p style="margin-top: 20px; font-size: 14px; color: #64748b;">الرجاء الدخول للموقع لتسجيل الدفع.</p>
-          </div>
-        `;
-        
-        await sendEmail(user.email, `⚠️ تذكير: لديك ${unpaidBills.length} فواتير لم تُدفع`, html);
+        const html = billReminderHtml(user.name, unpaidBills);
+        await sendEmail(user.email, `⚠️ تذكير: لديك ${unpaidBills.length} فواتير لم تُدفع - مدبّر`, html);
       }
     }
   } catch (error) {
