@@ -121,8 +121,8 @@ export const sendDailyBillReminders = async () => {
         orderBy: { dueDate: 'asc' }
       });
 
-      // Filter bills that are actually due this month
-      const unpaidBills = allUnpaidBills.filter(b => b.dueDate <= endOfMonth);
+      // Remind about all unpaid bills (both overdue and upcoming)
+      const unpaidBills = allUnpaidBills;
 
       if (unpaidBills.length > 0) {
         const html = `
