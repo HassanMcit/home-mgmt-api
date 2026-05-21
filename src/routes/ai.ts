@@ -112,7 +112,7 @@ router.get('/analysis', authenticate, async (req: AuthRequest, res: Response): P
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `أنت مستشار مالي خبير. قم بتحليل بيانات المصاريف الشهرية التالية وتقديم تقرير مفصل باللغة العربية.
 
@@ -193,7 +193,7 @@ router.get('/tip', authenticate, async (req: AuthRequest, res: Response): Promis
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const result = await model.generateContent(
       'أعطني نصيحة مالية عملية قصيرة ومفيدة باللغة العربية (جملة أو جملتين فقط) للمساعدة في إدارة الميزانية الأسرية.'
