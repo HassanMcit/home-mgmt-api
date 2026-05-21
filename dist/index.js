@@ -105,6 +105,22 @@ app.post('/api/cron/monthly-report', async (req, res) => {
         res.status(500).json({ message: 'Failed to send reports' });
     }
 });
+app.post('/api/cron/scheduled-reminders', async (req, res) => {
+    const secret = req.headers['x-cron-secret'];
+    if (secret !== process.env.CRON_SECRET) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+    try {
+        const { sendScheduledReminderEmails } = await Promise.resolve().then(() => __importStar(require('./services/reportService')));
+        await sendScheduledReminderEmails();
+        res.json({ message: 'Scheduled reminders processed successfully' });
+    }
+    catch (error) {
+        console.error('[Cron] Scheduled reminders error:', error);
+        res.status(500).json({ message: 'Failed to process scheduled reminders' });
+    }
+});
 // Initialize in-process Cron Jobs (backup for when service is awake)
 (0, reportService_1.initMonthlyReportCron)();
 app.listen(PORT, () => {

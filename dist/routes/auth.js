@@ -269,6 +269,7 @@ router.get('/test-smtp', async (req, res) => {
             message: error.message,
             code: error.code,
             response: error.response,
+            scriptUrl: process.env.GOOGLE_SCRIPT_URL ? 'Set' : 'Missing',
             user: process.env.EMAIL_USER ? 'Set' : 'Missing',
             pass: process.env.EMAIL_PASS ? 'Set (Length: ' + process.env.EMAIL_PASS?.length + ')' : 'Missing'
         });
