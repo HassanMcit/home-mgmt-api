@@ -315,4 +315,46 @@ router.get('/test-smtp', async (req: Request, res: Response) => {
   }
 });
 
+// Full email send test - tests the ACTUAL sendEmail path (Google Script or SMTP)
+router.get('/test-email', async (req: Request, res: Response) => {
+  const target = (req.query.to as string) || process.env.EMAIL_USER || 'alienghassan000@gmail.com';
+  const via = process.env.GOOGLE_SCRIPT_URL ? 'Google Apps Script Webhook' : 'Direct SMTP (Nodemailer)';
+
+  try {
+    const html = `
+      <div dir="rtl" style="font-family: Cairo, Arial, sans-serif; padding: 24px; max-width: 500px; margin: auto; border-radius: 12px; border: 2px solid #4f46e5;">
+        <h2 style="color: #4f46e5; margin-top: 0;">✅ اختبار البريد الإلكتروني</h2>
+        <p>هذا إيميل تجريبي تلقائي من سيرفر <strong>Render</strong> للتأكد من أن نظام الإيميل يعمل.</p>
+        <ul style="color: #475569; font-size: 14px; line-height: 1.8;">
+          <li><strong>وقت الإرسال:</strong> ${new Date().toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}</li>
+          <li><strong>طريقة الإرسال:</strong> ${via}</li>
+          <li><strong>المرسل إليه:</strong> ${target}</li>
+        </ul>
+        <p style="color: #10b981; font-weight: bold;">إذا وصلك هذا الإيميل، فالنظام يعمل بشكل مثالي! 🎉</p>
+      </div>
+    `;
+
+    const success = await sendEmail(target, '🧪 اختبار إيميل من Render - مدبّر', html);
+
+    res.json({
+      status: success ? 'success' : 'failed',
+      message: success
+        ? `تم إرسال الإيميل بنجاح إلى ${target} عبر ${via}`
+        : `فشل إرسال الإيميل`,
+      via,
+      to: target,
+      scriptUrl: process.env.GOOGLE_SCRIPT_URL ? 'Set' : 'Not Set',
+      emailUser: process.env.EMAIL_USER ? 'Set' : 'Not Set',
+      emailPass: process.env.EMAIL_PASS ? `Set (${process.env.EMAIL_PASS.length} chars)` : 'Not Set',
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+      via,
+      to: target,
+    });
+  }
+});
+
 export default router;
