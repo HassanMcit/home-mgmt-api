@@ -157,4 +157,48 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
   }
 });
 
+// Update transaction
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { amount, type, category, description, date, targetUserId } = req.body;
+
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: req.params.id as string },
+    });
+
+    if (!transaction) {
+      res.status(404).json({ message: 'المعاملة غير موجودة' });
+      return;
+    }
+
+    if (!isAdmin(req.user!.role) && transaction.userId !== req.user!.id) {
+      res.status(403).json({ message: 'غير مصرح لك بتعديل هذه المعاملة' });
+      return;
+    }
+
+    // Determine target user
+    let userId = transaction.userId;
+    if (isAdmin(req.user!.role) && targetUserId && targetUserId !== 'undefined' && targetUserId !== '') {
+      userId = targetUserId;
+    }
+
+    const updatedTransaction = await prisma.transaction.update({
+      where: { id: req.params.id as string },
+      data: {
+        userId,
+        amount: amount !== undefined ? parseFloat(amount) : undefined,
+        type,
+        category,
+        description,
+        date: date ? new Date(date) : undefined,
+      },
+    });
+
+    res.json(updatedTransaction);
+  } catch (error) {
+    console.error('[Transaction PUT] Error:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء تعديل المعاملة' });
+  }
+});
+
 export default router;
