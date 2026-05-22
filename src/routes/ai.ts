@@ -111,6 +111,16 @@ router.get('/analysis', authenticate, async (req: AuthRequest, res: Response): P
       return;
     }
 
+    const topExpensesList = [...transactions]
+      .filter(t => t.type === 'expense')
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 20)
+      .map(t => {
+        const catName = CATEGORY_NAMES[t.category] || t.category;
+        return `- ${t.description ? `${t.description} (${catName})` : catName}: ${t.amount.toFixed(2)} جنيه`;
+      })
+      .join('\n');
+
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
@@ -128,14 +138,17 @@ router.get('/analysis', authenticate, async (req: AuthRequest, res: Response): P
 توزيع المصاريف حسب الفئة:
 ${sortedCategories.map(c => `- ${c.categoryAr}: ${c.amount.toFixed(2)} جنيه (${c.percentage}%)`).join('\n')}
 
-المطلوب:
-1. تحليل شامل للمصاريف هذا الشهر
-2. تحديد أعلى 3 فئات مصاريف وتقييمها
-3. نصائح عملية لتوفير المال (مع أرقام محددة)
-4. خطة ادخار مقترحة للشهر القادم
-5. توصيات للاستثمار بناءً على الوضع المالي
+أهم المعاملات والمصاريف التفصيلية هذا الشهر (مرتبة حسب القيمة تنازلياً):
+${topExpensesList || 'لا توجد مصاريف تفصيلية مسجلة'}
 
-اجعل التحليل عملياً ومحدداً مع أرقام وتوصيات واقعية. استخدم أسماء الفئات بالعربية.`;
+المطلوب:
+1. تحليل شامل ومحدد للمصاريف والبنود التفصيلية هذا الشهر
+2. تحديد أعلى مصادر المصاريف (سواء كانت فئة عامة أو بنداً تفصيلياً معيناً مثل فاتورة كهرباء معينة أو خدمة محددة) وتقييم مدى ضرورتها
+3. نصائح عملية ومباشرة لتوفير المال بناءً على الفئات والبنود التفصيلية المحددة أعلاه (مع ذكر أرقام ونسب توفير متوقعة)
+4. خطة ترشيد وتوفير مقترحة للشهر القادم
+5. توصيات للاستثمار أو الادخار بناءً على الوضع المالي والرصيد المتبقي
+
+اجعل التحليل عملياً ومحدداً وموجهاً بشكل مخصص للبنود المذكورة (مثل أسماء الفواتير والمصاريف الفعلية بدلاً من الاكتفاء بالحديث عن الفئات العامة). استخدم اللغة العربية الفصحى المبسطة بأسلوب ودود ومحفز.`;
 
     let aiAnalysis = '';
     let quotaExceeded = false;
