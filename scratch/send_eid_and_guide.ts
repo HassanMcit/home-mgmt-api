@@ -27,6 +27,17 @@ const generateEmailHtml = (name: string) => `
     <p style="color: #334155; line-height: 1.8; margin: 0 0 16px; font-size: 15px;">
       يسرّ أسرة نظام <strong style="color: #4f46e5;">مدبّر</strong> أن تتقدم إليكم بأصدق التهاني والتبريكات بمناسبة حلول <strong>عيد الأضحى المبارك</strong>، أعاده الله علينا وعليكم وعلى الأمة الإسلامية بالخير واليمن والبركات، وكل عام وأنتم بخير وصحة وسعادة. تقبل الله طاعاتكم وصالح أعمالكم.
     </p>
+    
+    <!-- Apology block -->
+    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-right: 4px solid #d97706; padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+      <p style="margin: 0; color: #b45309; line-height: 1.8; font-size: 14px; font-weight: bold;">
+        ⚠️ اعتذار وتنويه هام:
+      </p>
+      <p style="margin: 6px 0 0 0; color: #78350f; line-height: 1.7; font-size: 14px;">
+        نود أن نتقدم لكم بأسفنا الشديد واعتذارنا الصادق عن أي عطل فني أو انقطاع قد واجهتموه في خدمات البريد الإلكتروني أو التحليل الذكي خلال الفترة الماضية. لقد قمنا بتحديد المشكلة الفنية وحلها بالكامل لضمان استقرار الخدمة وعدم تكرار مثل هذه الأعطال مستقبلاً. شكراً جزيلاً لرحابة صدركم وتفهمكم.
+      </p>
+    </div>
+
     <p style="color: #475569; line-height: 1.8; margin: 0; font-size: 15px; font-style: italic;">
       وبهذه المناسبة السعيدة، يسعدنا أن نقدّم لكم دليلاً شاملاً لكافة ميزات ووظائف نظامكم <strong>"مدبّر"</strong>، لمساعدتكم على تنظيم ميزانيتكم وإدارة مصاريفكم ومهامكم العائلية اليومية بكل كفاءة وسهولة.
     </p>
