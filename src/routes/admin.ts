@@ -100,19 +100,16 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
 
     console.log(`[Admin Approval] Attempting to send welcome email to TARGET: ${request.email}`);
 
-    // FIRE AND FORGET: Don't await sendEmail so the response is instant
-    // We run it in the background
-    sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml)
-      .then((emailSent) => {
-        if (emailSent) {
-          console.log(`[Admin Approval] Welcome email DISPATCHED successfully to: ${request.email}`);
-        } else {
-          console.warn(`[Admin Approval] Welcome email FAILED for: ${request.email}`);
-        }
-      })
-      .catch((err) => {
-        console.error(`[Admin Approval] Critical Error sending email to ${request.email}:`, err);
-      });
+    try {
+      const emailSent = await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
+      if (emailSent) {
+        console.log(`[Admin Approval] Welcome email DISPATCHED successfully to: ${request.email}`);
+      } else {
+        console.warn(`[Admin Approval] Welcome email FAILED for: ${request.email}`);
+      }
+    } catch (err) {
+      console.error(`[Admin Approval] Critical Error sending email to ${request.email}:`, err);
+    }
 
     res.json({
       message: `تم قبول طلب تسجيل ${request.name} بنجاح`
@@ -172,7 +169,11 @@ router.get('/requests/:id/quick-approve', async (req: Request, res: Response): P
     `;
 
     const { sendEmail } = require('../utils/mailer');
-    sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml).catch(console.error);
+    try {
+      await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
+    } catch (err) {
+      console.error('[Admin Quick Approval] Email error:', err);
+    }
 
     res.send(`
       <div dir="rtl" style="font-family: sans-serif; text-align: center; margin-top: 50px;">

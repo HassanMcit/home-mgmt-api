@@ -315,6 +315,30 @@ router.get('/test-smtp', async (req: Request, res: Response) => {
   }
 });
 
+// Secure diagnostic endpoint for checking environment variables shape on production
+router.get('/debug-env', (req: Request, res: Response) => {
+  const maskString = (str: string | undefined) => {
+    if (!str) return 'Missing';
+    const trimmed = str.trim();
+    const hasQuotes = (str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"));
+    const len = str.length;
+    if (len <= 10) return `Present (Length: ${len}, HasQuotes: ${hasQuotes})`;
+    const start = str.substring(0, 15);
+    const end = str.substring(len - 10);
+    return `${start}...${end} (Length: ${len}, HasQuotes: ${hasQuotes}, RawLength: ${str.length})`;
+  };
+
+  res.json({
+    GOOGLE_SCRIPT_URL: maskString(process.env.GOOGLE_SCRIPT_URL),
+    EMAIL_USER: maskString(process.env.EMAIL_USER),
+    EMAIL_PASS: maskString(process.env.EMAIL_PASS),
+    GEMINI_API_KEY: maskString(process.env.GEMINI_API_KEY),
+    NODE_ENV: process.env.NODE_ENV,
+    PORT: process.env.PORT
+  });
+});
+
+
 // Full email send test - tests the ACTUAL sendEmail path (Google Script or SMTP)
 router.get('/test-email', async (req: Request, res: Response) => {
   const target = (req.query.to as string) || process.env.EMAIL_USER || 'alienghassan000@gmail.com';
