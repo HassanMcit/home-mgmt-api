@@ -56,12 +56,17 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
     const { id } = req.params;
     const { name, targetAmount, currentAmount, deadline, color } = req.body;
 
-    const existing = await prisma.saving.findFirst({
-      where: { id: id as string, userId: req.user!.id },
+    const existing = await prisma.saving.findUnique({
+      where: { id: id as string },
     });
 
     if (!existing) {
       res.status(404).json({ message: 'هدف الادخار غير موجود' });
+      return;
+    }
+
+    if (!isAdmin(req.user!.role) && existing.userId !== req.user!.id) {
+      res.status(403).json({ message: 'غير مصرح لك بتعديل هذا الهدف' });
       return;
     }
 
@@ -88,12 +93,17 @@ router.post('/:id/deposit', authenticate, async (req: AuthRequest, res: Response
     const { id } = req.params;
     const { amount } = req.body;
 
-    const existing = await prisma.saving.findFirst({
-      where: { id: id as string, userId: req.user!.id },
+    const existing = await prisma.saving.findUnique({
+      where: { id: id as string },
     });
 
     if (!existing) {
       res.status(404).json({ message: 'هدف الادخار غير موجود' });
+      return;
+    }
+
+    if (!isAdmin(req.user!.role) && existing.userId !== req.user!.id) {
+      res.status(403).json({ message: 'غير مصرح لك بالإيداع في هذا الهدف' });
       return;
     }
 
@@ -115,12 +125,17 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
   try {
     const { id } = req.params;
 
-    const existing = await prisma.saving.findFirst({
-      where: { id: id as string, userId: req.user!.id },
+    const existing = await prisma.saving.findUnique({
+      where: { id: id as string },
     });
 
     if (!existing) {
       res.status(404).json({ message: 'هدف الادخار غير موجود' });
+      return;
+    }
+
+    if (!isAdmin(req.user!.role) && existing.userId !== req.user!.id) {
+      res.status(403).json({ message: 'غير مصرح لك بحذف هذا الهدف' });
       return;
     }
 
