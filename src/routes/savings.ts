@@ -19,6 +19,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
     });
     res.json(savings);
   } catch (error) {
+    console.error('[Savings GET Error]:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
@@ -46,6 +47,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 
     res.status(201).json(saving);
   } catch (error) {
+    console.error('[Savings POST Error]:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
@@ -83,6 +85,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
 
     res.json(saving);
   } catch (error) {
+    console.error('[Savings PUT Error]:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
@@ -116,6 +119,7 @@ router.post('/:id/deposit', authenticate, async (req: AuthRequest, res: Response
 
     res.json(saving);
   } catch (error) {
+    console.error('[Savings Deposit Error]:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
@@ -142,6 +146,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
     await prisma.saving.delete({ where: { id: id as string } });
     res.json({ message: 'تم حذف هدف الادخار بنجاح' });
   } catch (error) {
+    console.error('[Savings DELETE Error]:', error);
     res.status(500).json({ message: 'حدث خطأ في الخادم' });
   }
 });
