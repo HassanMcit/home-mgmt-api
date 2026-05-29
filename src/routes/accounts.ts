@@ -37,7 +37,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
         name,
         type,
         iban: type === 'bank' ? iban : null,
-        accountNum: type === 'bank' ? accountNum : null,
+        accountNum: (type === 'bank' || type === 'wallet') ? accountNum : null,
         balance: parseFloat(balance) || 0,
       },
     });
@@ -68,7 +68,7 @@ router.post('/onboard', authenticate, async (req: AuthRequest, res: Response): P
             name: acc.name,
             type: acc.type,
             iban: acc.type === 'bank' ? acc.iban : null,
-            accountNum: acc.type === 'bank' ? acc.accountNum : null,
+            accountNum: (acc.type === 'bank' || acc.type === 'wallet') ? acc.accountNum : null,
             balance: parseFloat(acc.balance) || 0,
           }
         })
@@ -109,7 +109,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
       data: {
         name: name !== undefined ? name : undefined,
         iban: existing.type === 'bank' && iban !== undefined ? iban : undefined,
-        accountNum: existing.type === 'bank' && accountNum !== undefined ? accountNum : undefined,
+        accountNum: (existing.type === 'bank' || existing.type === 'wallet') && accountNum !== undefined ? accountNum : undefined,
         balance: balance !== undefined ? parseFloat(balance) : undefined,
       },
     });
