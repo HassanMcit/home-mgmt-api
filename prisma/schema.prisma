@@ -124,16 +124,22 @@ model PasswordReset {
 }
 
 model Account {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  type        String   // "bank" | "cash"
-  iban        String?
-  accountNum  String?
-  balance     Float    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  type             String   // "bank" | "cash"
+  iban             String?
+  accountNum       String?
+  balance          Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  alias            String?
+  subType          String?  // "current" | "deposit"
+  depositAmount    Float?
+  interestRate     Float?
+  interestDay      Int?
+  lastInterestPaid DateTime?
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[] @relation("AccountTransactions")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions     Transaction[] @relation("AccountTransactions")
 }

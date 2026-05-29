@@ -91,6 +91,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const { accountId } = req.body;
 
     const where: any = { id: id as string };
     if (!isAdmin(req.user!.role)) {
@@ -116,6 +117,25 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
 
       // 2. If bill is being marked as PAID
       if (newStatus === true) {
+        // Determine valid accountId
+        let validAccountId: string | null = null;
+        if (accountId && accountId !== 'none') {
+          const account = await tx.account.findFirst({
+            where: {
+              id: accountId,
+              userId: existing.userId
+            }
+          });
+          if (account) {
+            validAccountId = accountId;
+            // Deduct balance
+            await tx.account.update({
+              where: { id: accountId },
+              data: { balance: { decrement: existing.amount } }
+            });
+          }
+        }
+
         // Create an expense transaction
         await tx.transaction.create({
           data: {
@@ -125,7 +145,8 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
             category: existing.category,
             description: `دفع فاتورة: ${existing.name}`,
             date: new Date(), // Recorded today
-            createdById: req.user!.id
+            createdById: req.user!.id,
+            accountId: validAccountId
           }
         });
       }

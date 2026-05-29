@@ -290,4 +290,96 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
   }
 });
 
+// Transfer funds between accounts
+router.post('/transfer', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { fromAccountId, toAccountId, amount, description, date } = req.body;
+
+    if (!fromAccountId || !toAccountId || !amount) {
+      res.status(400).json({ message: 'حساب المرسل وحساب المستقبل والمبلغ مطلوبين' });
+      return;
+    }
+
+    if (fromAccountId === toAccountId) {
+      res.status(400).json({ message: 'لا يمكن التحويل لنفس الحساب المالي' });
+      return;
+    }
+
+    const userId = req.user!.id;
+    const parsedAmount = parseFloat(amount);
+
+    if (parsedAmount <= 0) {
+      res.status(400).json({ message: 'المبلغ يجب أن يكون أكبر من الصفر' });
+      return;
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Get both accounts and verify ownership
+      const fromAccount = await tx.account.findUnique({ where: { id: fromAccountId } });
+      const toAccount = await tx.account.findUnique({ where: { id: toAccountId } });
+
+      if (!fromAccount || fromAccount.userId !== userId || !toAccount || toAccount.userId !== userId) {
+        throw new Error('أحد الحسابات المالية غير موجود أو غير تابع للمستخدم');
+      }
+
+      if (fromAccount.balance < parsedAmount) {
+        throw new Error('الرصيد في حساب المرسل غير كافٍ لإتمام عملية التحويل');
+      }
+
+      // 2. Update balances
+      await tx.account.update({
+        where: { id: fromAccountId },
+        data: { balance: { decrement: parsedAmount } }
+      });
+
+      await tx.account.update({
+        where: { id: toAccountId },
+        data: { balance: { increment: parsedAmount } }
+      });
+
+      // Fetch account display names for the description
+      const fromName = fromAccount.alias || fromAccount.name;
+      const toName = toAccount.alias || toAccount.name;
+
+      const desc = description || 'تحويل مالي';
+      const fromDesc = `${desc} (تحويل إلى ${toName})`;
+      const toDesc = `${desc} (تحويل من ${fromName})`;
+
+      // 3. Create two transactions
+      const fromTx = await tx.transaction.create({
+        data: {
+          userId,
+          amount: parsedAmount,
+          type: 'expense',
+          category: 'transfer',
+          description: fromDesc,
+          date: date ? new Date(date) : new Date(),
+          createdById: userId,
+          accountId: fromAccountId
+        }
+      });
+
+      const toTx = await tx.transaction.create({
+        data: {
+          userId,
+          amount: parsedAmount,
+          type: 'income',
+          category: 'transfer',
+          description: toDesc,
+          date: date ? new Date(date) : new Date(),
+          createdById: userId,
+          accountId: toAccountId
+        }
+      });
+
+      return { fromTx, toTx };
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('[Transactions Transfer] Error:', error);
+    res.status(500).json({ message: error.message || 'حدث خطأ أثناء إجراء عملية التحويل' });
+  }
+});
+
 export default router;
