@@ -21,6 +21,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 
     const transactions = await prisma.transaction.findMany({
       where,
+      include: {
+        account: {
+          select: { id: true, name: true, type: true }
+        }
+      },
       orderBy: { date: 'desc' },
       take: limit ? parseInt(limit as string) : undefined,
     });
@@ -50,16 +55,24 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Prom
     const startOfMonth = new Date(y, m - 1, 1);
     const endOfMonth = new Date(y, m, 0, 23, 59, 59);
 
-    // 1. Total Balance (All time)
-    const allTransactions = await prisma.transaction.findMany({
-      where: { userId },
+    // 1. Total Balance (All time) - sum of all accounts' balances
+    const accounts = await prisma.account.findMany({
+      where: { userId }
     });
-
+    
     let balance = 0;
-    allTransactions.forEach(t => {
-      if (t.type === 'income') balance += t.amount;
-      else balance -= t.amount;
-    });
+    if (accounts.length > 0) {
+      balance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+    } else {
+      // Fallback for backward compatibility if no accounts exist yet
+      const allTransactions = await prisma.transaction.findMany({
+        where: { userId },
+      });
+      allTransactions.forEach(t => {
+        if (t.type === 'income') balance += t.amount;
+        else balance -= t.amount;
+      });
+    }
 
     // 2. Monthly Stats
     const monthlyTransactions = await prisma.transaction.findMany({
@@ -97,7 +110,7 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Prom
 // Create transaction
 router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { amount, type, category, description, date, targetUserId } = req.body;
+    const { amount, type, category, description, date, targetUserId, accountId } = req.body;
 
     if (!amount || !type || !category) {
       res.status(400).json({ message: 'المبلغ والنوع والفئة مطلوبان' });
@@ -110,22 +123,50 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
       userId = targetUserId;
     }
 
-    const transaction = await prisma.transaction.create({
-      data: {
-        userId,
-        amount: parseFloat(amount),
-        type,
-        category,
-        description,
-        date: date ? new Date(date) : new Date(),
-        createdById: req.user!.id,
-      },
+    const parsedAmount = parseFloat(amount);
+
+    const transaction = await prisma.$transaction(async (tx) => {
+      // If accountId provided, verify and update its balance
+      if (accountId) {
+        const account = await tx.account.findUnique({
+          where: { id: accountId }
+        });
+        if (!account || account.userId !== userId) {
+          throw new Error('الحساب المالي غير موجود أو غير تابع للمستخدم');
+        }
+        
+        // Update balance
+        const balanceChange = type === 'income' ? parsedAmount : -parsedAmount;
+        await tx.account.update({
+          where: { id: accountId },
+          data: { balance: { increment: balanceChange } }
+        });
+      }
+
+      // Create the transaction
+      return await tx.transaction.create({
+        data: {
+          userId,
+          amount: parsedAmount,
+          type,
+          category,
+          description,
+          date: date ? new Date(date) : new Date(),
+          createdById: req.user!.id,
+          accountId: accountId || null,
+        },
+        include: {
+          account: {
+            select: { id: true, name: true, type: true }
+          }
+        }
+      });
     });
 
     res.json(transaction);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Transaction POST] Fatal Error:', error);
-    res.status(500).json({ message: 'حدث خطأ أثناء حفظ المعاملة' });
+    res.status(500).json({ message: error.message || 'حدث خطأ أثناء حفظ المعاملة' });
   }
 });
 
@@ -146,21 +187,32 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
       return;
     }
 
-    await prisma.transaction.delete({
-      where: { id: req.params.id as string },
+    await prisma.$transaction(async (tx) => {
+      // Revert balance change from account
+      if (transaction.accountId) {
+        const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+        await tx.account.update({
+          where: { id: transaction.accountId },
+          data: { balance: { increment: balanceChange } }
+        });
+      }
+
+      await tx.transaction.delete({
+        where: { id: req.params.id as string },
+      });
     });
 
     res.json({ message: 'تم حذف المعاملة بنجاح' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Transaction DELETE] Error:', error);
-    res.status(500).json({ message: 'حدث خطأ أثناء حذف المعاملة' });
+    res.status(500).json({ message: error.message || 'حدث خطأ أثناء حذف المعاملة' });
   }
 });
 
 // Update transaction
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { amount, type, category, description, date, targetUserId } = req.body;
+    const { amount, type, category, description, date, targetUserId, accountId } = req.body;
 
     const transaction = await prisma.transaction.findUnique({
       where: { id: req.params.id as string },
@@ -182,22 +234,59 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
       userId = targetUserId;
     }
 
-    const updatedTransaction = await prisma.transaction.update({
-      where: { id: req.params.id as string },
-      data: {
-        userId,
-        amount: amount !== undefined ? parseFloat(amount) : undefined,
-        type,
-        category,
-        description,
-        date: date ? new Date(date) : undefined,
-      },
+    const updatedTransaction = await prisma.$transaction(async (tx) => {
+      // 1. Revert old transaction effect
+      if (transaction.accountId) {
+        const revertChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+        await tx.account.update({
+          where: { id: transaction.accountId },
+          data: { balance: { increment: revertChange } }
+        });
+      }
+
+      const targetAccountId = req.body.hasOwnProperty('accountId') ? accountId : transaction.accountId;
+      const targetAmount = req.body.hasOwnProperty('amount') ? parseFloat(amount) : transaction.amount;
+      const targetType = req.body.hasOwnProperty('type') ? type : transaction.type;
+
+      // 2. Apply new transaction effect
+      if (targetAccountId) {
+        // Verify account belongs to user
+        const account = await tx.account.findUnique({ where: { id: targetAccountId } });
+        if (!account || account.userId !== userId) {
+          throw new Error('الحساب المالي المستهدف غير موجود أو غير تابع للمستخدم');
+        }
+
+        const applyChange = targetType === 'income' ? targetAmount : -targetAmount;
+        await tx.account.update({
+          where: { id: targetAccountId },
+          data: { balance: { increment: applyChange } }
+        });
+      }
+
+      // 3. Update the transaction
+      return await tx.transaction.update({
+        where: { id: req.params.id as string },
+        data: {
+          userId,
+          amount: amount !== undefined ? parseFloat(amount) : undefined,
+          type,
+          category,
+          description,
+          date: date ? new Date(date) : undefined,
+          accountId: targetAccountId || null,
+        },
+        include: {
+          account: {
+            select: { id: true, name: true, type: true }
+          }
+        }
+      });
     });
 
     res.json(updatedTransaction);
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Transaction PUT] Error:', error);
-    res.status(500).json({ message: 'حدث خطأ أثناء تعديل المعاملة' });
+    res.status(500).json({ message: error.message || 'حدث خطأ أثناء تعديل المعاملة' });
   }
 });
 
