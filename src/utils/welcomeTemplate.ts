@@ -46,11 +46,9 @@ export const getWelcomeEmailHtml = (name: string): string => {
 <body style="margin: 0; padding: 0; background-color: #0f0f23; min-height: 100%;">
   <div style="background-color: #0f0f23; padding: 30px 10px; min-height: 100%; direction: rtl;" dir="rtl">
     
-    <!-- Outer Table wrapper with background image attribute for maximum email client compatibility (iCloud, Gmail, Outlook) -->
-    <table class="email-container" cellpadding="0" cellspacing="0" border="0" width="100%" max-width="650" align="center" background="https://ha-smart-home.vercel.app/icon-512x512.png" style="max-width: 650px; margin: auto; background-image: url('https://ha-smart-home.vercel.app/icon-512x512.png'); background-repeat: no-repeat; background-position: center 350px; background-size: 300px; border-radius: 20px; border: 1px solid #2d2d5e; border-collapse: collapse; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+    <table class="email-container" cellpadding="0" cellspacing="0" border="0" width="100%" max-width="650" align="center" style="max-width: 650px; margin: auto; background-color: rgba(15, 15, 35, 0.98); border-radius: 20px; border: 1px solid #2d2d5e; border-collapse: collapse; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
       <tr>
-        <!-- Semi-transparent overlay to ensure text readability over the background logo -->
-        <td class="content-cell" style="background-color: rgba(15, 15, 35, 0.96); padding: 40px 30px; color: #e2e8f0;">
+        <td class="content-cell" style="padding: 40px 30px; color: #e2e8f0;">
           
           <!-- Header Logo & Title -->
           <table cellpadding="0" cellspacing="0" border="0" width="100%" style="text-align: center; border-bottom: 1px solid #2d2d5e; padding-bottom: 25px; margin-bottom: 30px;">
@@ -68,7 +66,7 @@ export const getWelcomeEmailHtml = (name: string): string => {
               ☀️ صبحكم الله بالخير والبركات والمسرات ☀️
             </h2>
             <p style="font-size: 16px; color: #cbd5e1; margin: 0; font-family: 'Cairo', Arial, sans-serif;">
-              السلام عليكم ورحمة الله وبركاته، نسأل الله أن يبارك في أوقاتكم وأرزقكم وأن يجعل هذا النظام عوناً لكم على إدارة حياتكم المالية بيسر وبركة وطمأنينة.
+              السلام عليكم ورحمة الله وبركاته، نسأل الله أن يبارك في أوقاتكم وأرزاقكم وأن يجعل هذا النظام عوناً لكم على إدارة حياتكم المالية بيسر وبركة وطمأنينة.
             </p>
             <p style="font-size: 15px; color: #a5b4fc; font-weight: bold; margin-top: 15px; font-family: 'Cairo', Arial, sans-serif;">
               تم تفعيل حسابك بنجاح يا ${name}! يمكنك الآن الاستفادة من كافة أدوات وميزات نظام "مدبّر" المتكامل.
@@ -77,8 +75,34 @@ export const getWelcomeEmailHtml = (name: string): string => {
 
           <hr style="border: 0; border-top: 1px solid #2d2d5e; margin: 25px 0;" />
 
+          <!-- NEW Features Banner -->
+          <div style="background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1)); border: 1px solid rgba(99,102,241,0.3); border-radius: 16px; padding: 20px 25px; margin-bottom: 30px; text-align: right;">
+            <h3 style="color: #a5b4fc; font-size: 17px; font-weight: 900; margin: 0 0 12px 0; font-family: 'Cairo', Arial, sans-serif;">✨ الميزات الجديدة المضافة حديثاً</h3>
+            <ul style="margin: 0; padding-right: 20px; color: #cbd5e1; font-size: 14px; line-height: 1.9; font-family: 'Cairo', Arial, sans-serif;">
+              <li><strong style="color:#818cf8;">حسابات بنكية متعددة:</strong> يمكنك إضافة أكثر من حساب لنفس البنك، وإعطاء كل حساب اسماً مخصصاً (مثل: حساب المرتب، حساب التوفير).</li>
+              <li><strong style="color:#818cf8;">تعديل الحسابات:</strong> تعديل أي بيانات لحساب موجود (رقم الحساب، الـ IBAN، الرصيد، النوع) بكل سهولة.</li>
+              <li><strong style="color:#818cf8;">صفحة تفاصيل الحساب:</strong> بالضغط على أي حساب تنتقل لصفحة مخصصة تعرض جميع حركاته المالية مع إمكانية البحث والفلترة.</li>
+              <li><strong style="color:#818cf8;">التحويل بين الحسابات:</strong> تحويل مباشر بين حساباتك المختلفة (بنك لبنك، بنك لكاش، إلخ).</li>
+              <li><strong style="color:#818cf8;">دعم المحافظ الإلكترونية:</strong> فودافون كاش، أورانج كاش، اتصالات كاش، وي باي — وإضافة رقم الهاتف لكل محفظة.</li>
+              <li><strong style="color:#818cf8;">الودائع وشهادات الادخار:</strong> تسجيل ودائعك البنكية مع نسبة الفائدة السنوية ويوم صرف الفائدة شهرياً.</li>
+            </ul>
+          </div>
+
           <!-- Detailed Feature Guide -->
-          <h3 style="color: #ffffff; font-size: 18px; font-weight: 800; margin-top: 0; margin-bottom: 25px; border-right: 4px solid #6366f1; padding-right: 10px; font-family: 'Cairo', Arial, sans-serif; text-align: right;">💡 دليل استخدام النظام والخطوات التفصيلية (الكلام مرتب تحت بعضه):</h3>
+          <h3 style="color: #ffffff; font-size: 18px; font-weight: 800; margin-top: 0; margin-bottom: 25px; border-right: 4px solid #6366f1; padding-right: 10px; font-family: 'Cairo', Arial, sans-serif; text-align: right;">💡 دليل استخدام النظام خطوة بخطوة:</h3>
+
+          <!-- Step 0: Accounts -->
+          <div style="background-color: rgba(99, 102, 241, 0.06); border: 1px solid rgba(99, 102, 241, 0.2); padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: right;">
+            <h4 style="color: #818cf8; margin-top: 0; margin-bottom: 8px; font-size: 16px; font-weight: 700; font-family: 'Cairo', Arial, sans-serif;">🏦 0. إعداد حساباتك المالية أولاً (البداية الصحيحة)</h4>
+            <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 12px 0; line-height: 1.6; font-family: 'Cairo', Arial, sans-serif;">قبل تسجيل أي معاملة، أضف بنوكك ومحافظك الإلكترونية لتنظيم أموالك بشكل احترافي.</p>
+            <strong style="color: #ffffff; font-size: 13px; font-family: 'Cairo', Arial, sans-serif;">الخطوات:</strong>
+            <ol style="margin: 8px 0 0 0; padding-right: 20px; color: #94a3b8; font-size: 13px; line-height: 1.7; font-family: 'Cairo', Arial, sans-serif;">
+              <li style="margin-bottom: 4px;">عند أول تسجيل دخول ستظهر لك شاشة التهيئة — أضف بنوكك ومحافظك ورصيد الكاش.</li>
+              <li style="margin-bottom: 4px;">يمكنك إضافة عدة حسابات لنفس البنك (مثلاً حساب جاري + شهادة ادخار في البنك الأهلي).</li>
+              <li style="margin-bottom: 4px;">اضغط على أي حساب في الصفحة الرئيسية لعرض صفحة التفاصيل الكاملة لحركاته.</li>
+              <li style="margin-bottom: 0;">استخدم زر ✏️ تعديل لتحديث أي بيانات للحساب في أي وقت.</li>
+            </ol>
+          </div>
 
           <!-- Step 1 -->
           <div style="background-color: rgba(99, 102, 241, 0.04); border: 1px solid rgba(99, 102, 241, 0.1); padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: right;">
@@ -88,9 +112,9 @@ export const getWelcomeEmailHtml = (name: string): string => {
             <ol style="margin: 8px 0 0 0; padding-right: 20px; color: #94a3b8; font-size: 13px; line-height: 1.7; font-family: 'Cairo', Arial, sans-serif;">
               <li style="margin-bottom: 4px;">ادخل إلى صفحة "المعاملات" من القائمة الجانبية.</li>
               <li style="margin-bottom: 4px;">انقر على زر "إضافة معاملة" بالأعلى.</li>
-              <li style="margin-bottom: 4px;">اختر نوع المعاملة (مصروف 🔴 أو إيراد 🟢).</li>
-              <li style="margin-bottom: 4px;">حدد المبلغ، واختر الفئة المناسبة (مواصلات، طعام، إلخ)، واكتب وصفاً بسيطاً، ثم احفظ.</li>
-              <li style="margin-bottom: 0;">يمكنك تعديل أي معاملة لاحقاً بالضغط على زر القلم ✏️ أو حذفها نهائياً 🗑️.</li>
+              <li style="margin-bottom: 4px;">اختر نوع المعاملة (مصروف 🔴 أو إيراد 🟢) والحساب المرتبط.</li>
+              <li style="margin-bottom: 4px;">حدد المبلغ، واختر الفئة المناسبة، واكتب وصفاً بسيطاً، ثم احفظ.</li>
+              <li style="margin-bottom: 0;">للتحويل بين حساباتك، اختر "تحويل بين الحسابات" ↔️ وحدد الحساب المُرسِل والمستقبِل.</li>
             </ol>
           </div>
 
@@ -103,7 +127,7 @@ export const getWelcomeEmailHtml = (name: string): string => {
               <li style="margin-bottom: 4px;">اذهب إلى قسم "الفواتير" من القائمة الجانبية.</li>
               <li style="margin-bottom: 4px;">اضغط "إضافة فاتورة" واكتب الاسم (مثل كهرباء، إنترنت)، والمبلغ، وتاريخ الاستحقاق.</li>
               <li style="margin-bottom: 4px;">اختر إذا كانت الفاتورة متكررة شهرياً ليتم إنشاؤها تلقائياً مع بداية كل شهر.</li>
-              <li style="margin-bottom: 0;">عند السداد الفعلي للفاتورة، اضغط على زر الدائرة ليتم تمييزها كـ "مدفوعة" 🎉.</li>
+              <li style="margin-bottom: 0;">عند السداد الفعلي، سيسألك النظام من أي حساب (بنك / كاش / محفظة) تريد الدفع ليخصم المبلغ تلقائياً.</li>
             </ol>
           </div>
 
@@ -144,13 +168,13 @@ export const getWelcomeEmailHtml = (name: string): string => {
           </div>
 
           <!-- Step 6 -->
-          <div style="background-color: rgba(139, 92, 246, 0.04); border: 1px solid rgba(139, 92, 246, 0.1); padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: right;">
+          <div style="background-color: rgba(139, 92, 246, 0.04); border: 1px solid rgba(139, 92, 246, 0.1); padding: 20px; border-radius: 12px; margin-bottom: 30px; text-align: right;">
             <h4 style="color: #c084fc; margin-top: 0; margin-bottom: 8px; font-size: 16px; font-weight: 700; font-family: 'Cairo', Arial, sans-serif;">6. المستشار المالي بالذكاء الاصطناعي (AI) 🤖</h4>
             <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 12px 0; line-height: 1.6; font-family: 'Cairo', Arial, sans-serif;">احصل على تحليل عميق وتوصيات ذكية مخصصة لنشاطك المالي.</p>
             <strong style="color: #ffffff; font-size: 13px; font-family: 'Cairo', Arial, sans-serif;">الخطوات:</strong>
             <ol style="margin: 8px 0 0 0; padding-right: 20px; color: #94a3b8; font-size: 13px; line-height: 1.7; font-family: 'Cairo', Arial, sans-serif;">
               <li style="margin-bottom: 4px;">اذهب لقسم "التحليل الذكي" من القائمة الجانبية.</li>
-              <li style="margin-bottom: 0;">اضغط على "طلب تحليل مالي ذكي" ليقوم الذكاء الاصطناعي بدراسة معاملاتك وتقديم خطة ترشيد مخصصة وتوصيات عملية لزيادة ادخارك 📈.</li>
+              <li style="margin-bottom: 0;">اضغط على "طلب تحليل مالي ذكي" ليقوم الذكاء الاصطناعي بدراسة معاملاتك وتقديم خطة ترشيد مخصصة وتوصيات عملية 📈.</li>
             </ol>
           </div>
 

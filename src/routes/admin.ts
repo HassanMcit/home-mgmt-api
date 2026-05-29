@@ -5,6 +5,7 @@ import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { generateAndSendMonthlyReports } from '../services/reportService';
 import { sendEmail } from '../utils/mailer';
 import { getWelcomeEmailHtml } from '../utils/welcomeTemplate';
+import { getEidEmailHtml } from '../utils/eidTemplate';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -302,6 +303,54 @@ router.get('/reset-codes', authenticate, requireAdmin, async (_req: AuthRequest,
   } catch (error) {
     console.error('[Admin Reset Codes] Error:', error);
     res.status(500).json({ message: 'حدث خطأ في تحميل أكواد استعادة كلمة المرور' });
+  }
+});
+
+// ── Send Eid Al-Adha email to ALL users ──────────────────────────────────────
+router.post('/send-eid-email', authenticate, requireAdmin, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true },
+    });
+
+    if (users.length === 0) {
+      res.status(404).json({ message: 'لا يوجد مستخدمون لإرسال الإيميل إليهم.' });
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const user of users) {
+      try {
+        const html = getEidEmailHtml(user.name);
+        const sent = await sendEmail(
+          user.email,
+          'عيد الأضحى المبارك 🌙 — وميزات جديدة في مدبّر',
+          html
+        );
+        if (sent) {
+          successCount++;
+          console.log(`[Eid Email] ✅ Sent to ${user.email}`);
+        } else {
+          failCount++;
+          console.warn(`[Eid Email] ⚠️ Failed for ${user.email}`);
+        }
+      } catch (emailErr) {
+        failCount++;
+        console.error(`[Eid Email] ❌ Error for ${user.email}:`, emailErr);
+      }
+    }
+
+    res.json({
+      message: `تم إرسال إيميل العيد بنجاح لـ ${successCount} مستخدم${failCount > 0 ? `، وفشل إرسال ${failCount}` : ''}.`,
+      successCount,
+      failCount,
+      total: users.length,
+    });
+  } catch (error) {
+    console.error('[Eid Email] Error:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء إرسال إيميلات العيد' });
   }
 });
 
