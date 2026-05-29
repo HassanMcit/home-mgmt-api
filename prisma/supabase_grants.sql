@@ -29,6 +29,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public."SavingsGoal" TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public."PasswordReset" TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public."PasswordReset" TO service_role;
 
+-- === Account Table ===
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."Account" TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."Account" TO service_role;
+
 -- NOTE: Since your backend uses Prisma with a direct connection string (DIRECT_URL),
 -- you are largely NOT affected by this change. Your backend bypasses the Data API.
 -- This SQL is a precaution for any future supabase-js direct calls.
