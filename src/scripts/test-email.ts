@@ -1,9 +1,10 @@
-import { sendEmail } from '../utils/mailer';
 import dotenv from 'dotenv';
 import path from 'path';
 
 // Load env variables
 dotenv.config({ path: path.join(__dirname, '../../.env') });
+
+import { sendEmail } from '../utils/mailer';
 
 async function test() {
   console.log('Using EMAIL_USER:', process.env.EMAIL_USER);
