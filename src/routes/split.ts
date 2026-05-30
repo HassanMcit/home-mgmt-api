@@ -51,8 +51,9 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const id = req.params.id as string;
     const bill = await prisma.splitBill.findFirst({
-      where: { id: req.params.id, paidById: req.user!.id },
+      where: { id, paidById: req.user!.id },
       include: { participants: { orderBy: { createdAt: 'asc' } } },
     });
 
@@ -134,7 +135,8 @@ router.patch(
   authenticate,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { billId, participantId } = req.params;
+      const billId = req.params.billId as string;
+      const participantId = req.params.participantId as string;
       const { isPaid } = req.body as { isPaid: boolean };
 
       if (typeof isPaid !== 'boolean') {
@@ -153,7 +155,7 @@ router.patch(
       }
 
       const updated = await prisma.splitParticipant.update({
-        where: { id: participantId },
+        where: { id: participantId as string },
         data: {
           isPaid,
           paidAt: isPaid ? new Date() : null,
@@ -173,8 +175,9 @@ router.patch(
 
 router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const id = req.params.id as string;
     const bill = await prisma.splitBill.findFirst({
-      where: { id: req.params.id, paidById: req.user!.id },
+      where: { id, paidById: req.user!.id },
     });
 
     if (!bill) {
@@ -182,7 +185,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response): Pro
       return;
     }
 
-    await prisma.splitBill.delete({ where: { id: req.params.id } });
+    await prisma.splitBill.delete({ where: { id } });
     res.json({ message: 'تم حذف الحسبة بنجاح' });
   } catch (error) {
     console.error('[SplitBill] DELETE error:', error);
