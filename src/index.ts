@@ -11,6 +11,7 @@ import adminRoutes from './routes/admin';
 import aiRoutes from './routes/ai';
 import reminderRoutes from './routes/reminders';
 import accountRoutes from './routes/accounts';
+import splitRoutes from './routes/split';
 import { initMonthlyReportCron } from './services/reportService';
 
 process.env.TZ = 'UTC';
@@ -39,6 +40,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/accounts', accountRoutes);
+app.use('/api/split', splitRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'HA Home Management API is running' });

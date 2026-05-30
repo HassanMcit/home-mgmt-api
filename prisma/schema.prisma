@@ -25,6 +25,8 @@ model User {
   bills        Bill[]
   reminders    Reminder[]
   accounts     Account[]
+  splitBillsPaidBy     SplitBill[]         @relation("SplitBillsPaidBy")
+  splitParticipations  SplitParticipant[]  @relation("SplitParticipations")
 }
 
 model RegistrationRequest {
@@ -143,3 +145,48 @@ model Account {
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions     Transaction[] @relation("AccountTransactions")
 }
+
+// ─── شيل معايا — Bill Splitting ──────────────────────────────────────────────
+
+/// A bill-splitting session created by a user.
+model SplitBill {
+  id          String   @id @default(cuid())
+  /// The user who initiated and paid the bill
+  paidById    String
+  /// Human-friendly title, e.g. "خروجة القهوة"
+  title       String
+  /// Full bill amount in EGP
+  totalAmount Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  paidBy       User               @relation("SplitBillsPaidBy", fields: [paidById], references: [id], onDelete: Cascade)
+  participants SplitParticipant[]
+
+  @@index([paidById])
+}
+
+/// One row per person in a split session.
+model SplitParticipant {
+  id              String    @id @default(cuid())
+  splitBillId     String
+  /// Free-text name for guests not registered in the system
+  participantName String
+  /// Optional: linked to a registered User account
+  participantId   String?
+  /// Exact amount this participant owes
+  owedAmount      Float
+  /// Has this participant settled their share?
+  isPaid          Boolean   @default(false)
+  /// When they settled (null = not yet paid)
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  splitBill   SplitBill @relation(fields: [splitBillId], references: [id], onDelete: Cascade)
+  participant User?     @relation("SplitParticipations", fields: [participantId], references: [id], onDelete: SetNull)
+
+  @@index([splitBillId])
+  @@index([participantId])
+}
+
