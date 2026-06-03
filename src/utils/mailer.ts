@@ -22,6 +22,35 @@ export const transporter = nodemailer.createTransport({
   socketTimeout: 10000,    // 10 seconds max for any socket operation
 });
 
+const sendDirectSmtp = async (to: string, subject: string, html: string, isFallback: boolean = false) => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error(`❌ [Mailer] SMTP ${isFallback ? 'fallback ' : ''}failed: EMAIL_USER or EMAIL_PASS not set in environment variables!`);
+    return false;
+  }
+  
+  console.log(`📧 [Mailer] ====== EMAIL DISPATCH START ======`);
+  console.log(`📧 [Mailer] VIA:  Direct SMTP (Nodemailer)${isFallback ? ' [FALLBACK]' : ''}`);
+  console.log(`📧 [Mailer] TO:   ${to}`);
+  console.log(`📧 [Mailer] SUBJ: ${subject}`);
+  
+  try {
+    await transporter.sendMail({
+      from: `"مدبّر" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html
+    });
+    
+    console.log(`📧 [Mailer] SUCCESS! Email sent via SMTP.`);
+    console.log(`📧 [Mailer] ====== EMAIL DISPATCH END ========`);
+    return true;
+  } catch (error) {
+    console.error(`❌ [Mailer] SMTP ${isFallback ? 'fallback ' : ''}failed:`, error);
+    console.log(`📧 [Mailer] ====== EMAIL DISPATCH END ========`);
+    return false;
+  }
+};
+
 // We now use Google Apps Script over HTTPS to bypass Render's SMTP blocks
 export const sendEmail = async (to: string, subject: string, html: string) => {
   try {
@@ -29,26 +58,7 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
     
     if (!scriptUrl) {
       console.warn('⚠️ [Mailer] GOOGLE_SCRIPT_URL is not set. Falling back to direct SMTP transporter...');
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.error('❌ [Mailer] Fallback failed: EMAIL_USER or EMAIL_PASS not set in environment variables!');
-        return false;
-      }
-      
-      console.log(`📧 [Mailer] ====== EMAIL DISPATCH START ======`);
-      console.log(`📧 [Mailer] VIA:  Direct SMTP (Nodemailer)`);
-      console.log(`📧 [Mailer] TO:   ${to}`);
-      console.log(`📧 [Mailer] SUBJ: ${subject}`);
-      
-      await transporter.sendMail({
-        from: `"مدبّر" <${process.env.EMAIL_USER}>`,
-        to,
-        subject,
-        html
-      });
-      
-      console.log(`📧 [Mailer] SUCCESS! Email sent via SMTP.`);
-      console.log(`📧 [Mailer] ====== EMAIL DISPATCH END ========`);
-      return true;
+      return await sendDirectSmtp(to, subject, html, false);
     }
 
     console.log(`📧 [Mailer] ====== EMAIL DISPATCH START ======`);
@@ -76,10 +86,13 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
       return true;
     } else {
       console.error(`❌ [Mailer] Webhook returned error:`, result.message);
-      return false;
+      console.log(`⚠️ [Mailer] Attempting fallback to SMTP...`);
+      return await sendDirectSmtp(to, subject, html, true);
     }
   } catch (error) {
     console.error('❌ [Mailer] Error sending via Webhook:', error);
-    return false;
+    console.log(`⚠️ [Mailer] Attempting fallback to SMTP...`);
+    return await sendDirectSmtp(to, subject, html, true);
   }
 };
+

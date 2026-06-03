@@ -69,8 +69,9 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
 
     console.log(`[Admin Approval] Attempting to send welcome email to TARGET: ${request.email}`);
 
+    let emailSent = false;
     try {
-      const emailSent = await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
+      emailSent = await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
       if (emailSent) {
         console.log(`[Admin Approval] Welcome email DISPATCHED successfully to: ${request.email}`);
       } else {
@@ -81,7 +82,8 @@ router.post('/requests/:id/approve', authenticate, requireAdmin, async (req: Aut
     }
 
     res.json({
-      message: `تم قبول طلب تسجيل ${request.name} بنجاح`
+      message: `تم قبول طلب تسجيل ${request.name} بنجاح`,
+      emailSent
     });
   } catch (error: any) {
     console.error('[Admin Approval] Error:', error);
@@ -127,18 +129,21 @@ router.get('/requests/:id/quick-approve', async (req: Request, res: Response): P
 
     const welcomeHtml = getWelcomeEmailHtml(request.name);
 
+    let emailSent = false;
     const { sendEmail } = require('../utils/mailer');
     try {
-      await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
+      emailSent = await sendEmail(request.email, 'تم تفعيل حسابك بنجاح - مرحباً بك في مدبّر', welcomeHtml);
     } catch (err) {
       console.error('[Admin Quick Approval] Email error:', err);
     }
 
     res.send(`
-      <div dir="rtl" style="font-family: sans-serif; text-align: center; margin-top: 50px;">
-        <h1 style="color: green;">تم قبول طلب التسجيل بنجاح! ✅</h1>
-        <p>تم إرسال بريد إلكتروني ترحيبي للمستخدم.</p>
-        <a href="${process.env.FRONTEND_URL || 'https://ha-smart-home.vercel.app'}/dashboard/admin" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; text-decoration: none; border-radius: 5px;">العودة للوحة التحكم</a>
+      <div dir="rtl" style="font-family: sans-serif; text-align: center; margin-top: 50px; padding: 20px; max-width: 500px; margin-left: auto; margin-right: auto; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <h1 style="color: #10b981; font-size: 24px; margin-bottom: 10px;">تم قبول طلب التسجيل بنجاح! ✅</h1>
+        ${emailSent 
+          ? '<p style="color: #475569; font-size: 16px;">تم إرسال بريد إلكتروني ترحيبي وتوجيهي للمستخدم بنجاح.</p>' 
+          : '<p style="color: #ea580c; font-size: 16px; font-weight: bold;">تم قبول الحساب بنجاح، ولكن فشل إرسال البريد الترحيبي التلقائي. يمكنك إرساله يدوياً لاحقاً من لوحة تحكم الإدارة.</p>'}
+        <a href="${process.env.FRONTEND_URL || 'https://ha-smart-home.vercel.app'}/dashboard/admin" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">العودة للوحة التحكم</a>
       </div>
     `);
   } catch (error: any) {
