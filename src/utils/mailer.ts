@@ -76,6 +76,7 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
         subject,
         html
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     const result = await response.json();
