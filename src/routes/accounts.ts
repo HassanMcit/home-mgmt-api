@@ -114,7 +114,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
 router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const { name, type, iban, accountNum, balance, alias, subType, depositAmount, interestRate, interestDay } = req.body;
+    const { name, type, iban, accountNum, balance, alias, subType, depositAmount, interestRate, interestDay, denominations } = req.body;
 
     if (!name || !type) {
       res.status(400).json({ message: 'اسم الحساب ونوعه مطلوبان' });
@@ -145,6 +145,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
         depositAmount: subType === 'deposit' ? parseFloat(depositAmount) || 0 : null,
         interestRate: subType === 'deposit' ? parseFloat(interestRate) || 0 : null,
         interestDay: subType === 'deposit' ? parseInt(interestDay) || 1 : null,
+        denominations: type === 'cash' ? (denominations || null) : null,
       },
     });
 
@@ -208,7 +209,7 @@ router.post('/onboard', authenticate, async (req: AuthRequest, res: Response): P
 // Update account
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, iban, accountNum, balance, alias, subType, depositAmount, interestRate, interestDay } = req.body;
+    const { name, iban, accountNum, balance, alias, subType, depositAmount, interestRate, interestDay, denominations } = req.body;
     const accountId = req.params.id as string;
     const userId = req.user!.id;
 
@@ -250,6 +251,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
         depositAmount: subType === 'deposit' && depositAmount !== undefined ? parseFloat(depositAmount) : undefined,
         interestRate: subType === 'deposit' && interestRate !== undefined ? parseFloat(interestRate) : undefined,
         interestDay: subType === 'deposit' && interestDay !== undefined ? parseInt(interestDay) : undefined,
+        denominations: existing.type === 'cash' && denominations !== undefined ? denominations : undefined,
       },
     });
 

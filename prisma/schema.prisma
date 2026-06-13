@@ -141,6 +141,7 @@ model Account {
   interestRate     Float?
   interestDay      Int?
   lastInterestPaid DateTime?
+  denominations    Json?
 
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions     Transaction[] @relation("AccountTransactions")
