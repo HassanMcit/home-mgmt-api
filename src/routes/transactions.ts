@@ -110,7 +110,7 @@ router.get('/stats', authenticate, async (req: AuthRequest, res: Response): Prom
 // Create transaction
 router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { amount, type, category, description, date, targetUserId, accountId } = req.body;
+    const { amount, type, category, description, date, targetUserId, accountId, denominations } = req.body;
 
     if (!amount || !type || !category) {
       res.status(400).json({ message: 'المبلغ والنوع والفئة مطلوبان' });
@@ -137,9 +137,31 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
         
         // Update balance
         const balanceChange = type === 'income' ? parsedAmount : -parsedAmount;
+        
+        // If cash account and denominations provided, merge them
+        let denominationsUpdate: Record<string, number> | undefined;
+        if (account.type === 'cash' && denominations && typeof denominations === 'object') {
+          const current = (account.denominations as Record<string, number>) || {};
+          const merged: Record<string, number> = { ...current };
+          for (const [denom, count] of Object.entries(denominations as Record<string, number>)) {
+            const c = Number(count) || 0;
+            if (c === 0) continue;
+            const existing = merged[denom] || 0;
+            if (type === 'income') {
+              merged[denom] = existing + c;
+            } else {
+              merged[denom] = Math.max(0, existing - c);
+            }
+          }
+          denominationsUpdate = merged;
+        }
+
         await tx.account.update({
           where: { id: accountId },
-          data: { balance: { increment: balanceChange } }
+          data: {
+            balance: { increment: balanceChange },
+            ...(denominationsUpdate ? { denominations: denominationsUpdate } : {}),
+          }
         });
       }
 
