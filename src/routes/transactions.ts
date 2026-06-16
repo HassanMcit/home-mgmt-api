@@ -148,7 +148,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
             if (c === 0) continue;
             const existing = merged[denom] || 0;
             if (type === 'income') {
-              merged[denom] = existing + c;
+              merged[denom] = Math.max(0, existing + c);
             } else {
               merged[denom] = Math.max(0, existing - c);
             }
@@ -315,7 +315,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promis
 // Transfer funds between accounts
 router.post('/transfer', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { fromAccountId, toAccountId, amount, description, date } = req.body;
+    const { fromAccountId, toAccountId, amount, description, date, fromDenominations, toDenominations } = req.body;
 
     if (!fromAccountId || !toAccountId || !amount) {
       res.status(400).json({ message: 'حساب المرسل وحساب المستقبل والمبلغ مطلوبين' });
@@ -348,15 +348,49 @@ router.post('/transfer', authenticate, async (req: AuthRequest, res: Response): 
         throw new Error('الرصيد في حساب المرسل غير كافٍ لإتمام عملية التحويل');
       }
 
-      // 2. Update balances
+      // Calculate denominations update for fromAccount (decrement)
+      let fromDenomsUpdate: Record<string, number> | undefined;
+      if (fromAccount.type === 'cash' && fromDenominations && typeof fromDenominations === 'object') {
+        const current = (fromAccount.denominations as Record<string, number>) || {};
+        const merged: Record<string, number> = { ...current };
+        for (const [denom, count] of Object.entries(fromDenominations as Record<string, number>)) {
+          const c = Number(count) || 0;
+          if (c === 0) continue;
+          const existing = merged[denom] || 0;
+          merged[denom] = Math.max(0, existing - c);
+        }
+        fromDenomsUpdate = merged;
+      }
+
+      // Calculate denominations update for toAccount (increment)
+      let toDenomsUpdate: Record<string, number> | undefined;
+      if (toAccount.type === 'cash' && toDenominations && typeof toDenominations === 'object') {
+        const current = (toAccount.denominations as Record<string, number>) || {};
+        const merged: Record<string, number> = { ...current };
+        for (const [denom, count] of Object.entries(toDenominations as Record<string, number>)) {
+          const c = Number(count) || 0;
+          if (c === 0) continue;
+          const existing = merged[denom] || 0;
+          merged[denom] = Math.max(0, existing + c);
+        }
+        toDenomsUpdate = merged;
+      }
+
+      // 2. Update balances and denominations
       await tx.account.update({
         where: { id: fromAccountId },
-        data: { balance: { decrement: parsedAmount } }
+        data: {
+          balance: { decrement: parsedAmount },
+          ...(fromDenomsUpdate ? { denominations: fromDenomsUpdate } : {})
+        }
       });
 
       await tx.account.update({
         where: { id: toAccountId },
-        data: { balance: { increment: parsedAmount } }
+        data: {
+          balance: { increment: parsedAmount },
+          ...(toDenomsUpdate ? { denominations: toDenomsUpdate } : {})
+        }
       });
 
       // Fetch account display names for the description
