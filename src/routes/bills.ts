@@ -91,7 +91,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { accountId } = req.body;
+    const { accountId, transferToAccountId } = req.body;
 
     const where: any = { id: id as string };
     if (!isAdmin(req.user!.role)) {
@@ -117,47 +117,107 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
 
       // 2. If bill is being marked as PAID
       if (newStatus === true) {
-        // Determine valid accountId
-        let validAccountId: string | null = null;
-        if (accountId && accountId !== 'none') {
-          const account = await tx.account.findFirst({
-            where: {
-              id: accountId,
-              userId: existing.userId
+        if (transferToAccountId && transferToAccountId !== 'none' && accountId && accountId !== 'none') {
+          // Verify both accounts belong to the user
+          const fromAccount = await tx.account.findFirst({
+            where: { id: accountId, userId: existing.userId }
+          });
+          const toAccount = await tx.account.findFirst({
+            where: { id: transferToAccountId, userId: existing.userId }
+          });
+
+          if (!fromAccount || !toAccount) {
+            throw new Error('أحد الحسابات المالية غير موجود أو غير تابع للمستخدم');
+          }
+
+          if (fromAccount.balance < existing.amount) {
+            throw new Error('الرصيد في حساب المرسل غير كافٍ لإتمام عملية التحويل');
+          }
+
+          // Deduct from sender and increment receiver
+          await tx.account.update({
+            where: { id: accountId },
+            data: { balance: { decrement: existing.amount } }
+          });
+
+          await tx.account.update({
+            where: { id: transferToAccountId },
+            data: { balance: { increment: existing.amount } }
+          });
+
+          const fromName = fromAccount.alias || fromAccount.name;
+          const toName = toAccount.alias || toAccount.name;
+
+          // Create expense transaction for sender
+          await tx.transaction.create({
+            data: {
+              userId: existing.userId,
+              amount: existing.amount,
+              type: 'expense',
+              category: 'transfer',
+              description: `دفع فاتورة (تحويل إلى ${toName}): ${existing.name}`,
+              date: new Date(),
+              createdById: req.user!.id,
+              accountId: accountId
             }
           });
-          if (account) {
-            validAccountId = accountId;
-            // Deduct balance
-            await tx.account.update({
-              where: { id: accountId },
-              data: { balance: { decrement: existing.amount } }
-            });
-          }
-        }
 
-        // Create an expense transaction
-        await tx.transaction.create({
-          data: {
-            userId: existing.userId,
-            amount: existing.amount,
-            type: 'expense',
-            category: existing.category,
-            description: `دفع فاتورة: ${existing.name}`,
-            date: new Date(), // Recorded today
-            createdById: req.user!.id,
-            accountId: validAccountId
+          // Create income transaction for receiver
+          await tx.transaction.create({
+            data: {
+              userId: existing.userId,
+              amount: existing.amount,
+              type: 'income',
+              category: 'transfer',
+              description: `استلام دفع فاتورة (تحويل من ${fromName}): ${existing.name}`,
+              date: new Date(),
+              createdById: req.user!.id,
+              accountId: transferToAccountId
+            }
+          });
+        } else {
+          // Standard single-account deduction
+          let validAccountId: string | null = null;
+          if (accountId && accountId !== 'none') {
+            const account = await tx.account.findFirst({
+              where: {
+                id: accountId,
+                userId: existing.userId
+              }
+            });
+            if (account) {
+              validAccountId = accountId;
+              // Deduct balance
+              await tx.account.update({
+                where: { id: accountId },
+                data: { balance: { decrement: existing.amount } }
+              });
+            }
           }
-        });
+
+          // Create a standard expense transaction
+          await tx.transaction.create({
+            data: {
+              userId: existing.userId,
+              amount: existing.amount,
+              type: 'expense',
+              category: existing.category,
+              description: `دفع فاتورة: ${existing.name}`,
+              date: new Date(), // Recorded today
+              createdById: req.user!.id,
+              accountId: validAccountId
+            }
+          });
+        }
       }
 
       return updatedBill;
     });
 
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Bill toggle error:', error);
-    res.status(500).json({ message: 'حدث خطأ في الخادم' });
+    res.status(500).json({ message: error.message || 'حدث خطأ في الخادم' });
   }
 });
 
