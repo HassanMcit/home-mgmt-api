@@ -91,7 +91,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { accountId, transferToAccountId } = req.body;
+    const { accountId, transferToAccountId, transferFee } = req.body;
 
     const where: any = { id: id as string };
     if (!isAdmin(req.user!.role)) {
@@ -130,14 +130,17 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
             throw new Error('أحد الحسابات المالية غير موجود أو غير تابع للمستخدم');
           }
 
-          if (fromAccount.balance < existing.amount) {
-            throw new Error('الرصيد في حساب المرسل غير كافٍ لإتمام عملية التحويل');
+          const parsedFee = parseFloat(transferFee) || 0;
+          const totalDeduct = existing.amount + parsedFee;
+
+          if (fromAccount.balance < totalDeduct) {
+            throw new Error('الرصيد في حساب المرسل غير كافٍ لإتمام عملية التحويل ومصاريفه');
           }
 
-          // Deduct from sender and increment receiver
+          // Deduct from sender (including fee) and increment receiver (only bill amount)
           await tx.account.update({
             where: { id: accountId },
-            data: { balance: { decrement: existing.amount } }
+            data: { balance: { decrement: totalDeduct } }
           });
 
           await tx.account.update({
@@ -175,6 +178,22 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
               accountId: transferToAccountId
             }
           });
+
+          // Create separate transaction for transfer fee if applicable
+          if (parsedFee > 0) {
+            await tx.transaction.create({
+              data: {
+                userId: existing.userId,
+                amount: parsedFee,
+                type: 'expense',
+                category: 'transfer',
+                description: `مصاريف تحويل دفع فاتورة: ${existing.name}`,
+                date: new Date(),
+                createdById: req.user!.id,
+                accountId: accountId
+              }
+            });
+          }
         } else {
           // Standard single-account deduction
           let validAccountId: string | null = null;
