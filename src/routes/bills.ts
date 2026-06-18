@@ -197,6 +197,8 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
         } else {
           // Standard single-account deduction
           let validAccountId: string | null = null;
+          const parsedFee = parseFloat(transferFee) || 0;
+
           if (accountId && accountId !== 'none') {
             const account = await tx.account.findFirst({
               where: {
@@ -205,11 +207,16 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
               }
             });
             if (account) {
+              const totalDeduct = existing.amount + parsedFee;
+              if (account.type !== 'cash' && account.balance < totalDeduct) {
+                throw new Error('الرصيد في الحساب المالي غير كافٍ لإتمام عملية السداد ومصاريف التحويل');
+              }
+
               validAccountId = accountId;
-              // Deduct balance
+              // Deduct balance (including fee)
               await tx.account.update({
                 where: { id: accountId },
-                data: { balance: { decrement: existing.amount } }
+                data: { balance: { decrement: totalDeduct } }
               });
             }
           }
@@ -227,6 +234,22 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
               accountId: validAccountId
             }
           });
+
+          // Create separate transaction for transfer fee if applicable
+          if (parsedFee > 0 && validAccountId) {
+            await tx.transaction.create({
+              data: {
+                userId: existing.userId,
+                amount: parsedFee,
+                type: 'expense',
+                category: 'transfer',
+                description: `مصاريف تحويل دفع فاتورة: ${existing.name}`,
+                date: new Date(),
+                createdById: req.user!.id,
+                accountId: validAccountId
+              }
+            });
+          }
         }
       }
 
