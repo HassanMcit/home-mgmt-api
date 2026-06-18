@@ -21,6 +21,14 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 
+// Global no-cache headers for all API requests to prevent browser caching of GET requests
+app.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // Global request logger for debugging
 app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
