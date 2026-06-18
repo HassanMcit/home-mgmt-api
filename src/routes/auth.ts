@@ -143,9 +143,14 @@ router.put('/profile', authenticate, async (req: AuthRequest, res: Response): Pr
   try {
     const { name, avatar } = req.body;
 
+    // Build update data carefully: only update avatar if explicitly provided
+    const updateData: { name?: string; avatar?: string } = {};
+    if (name !== undefined) updateData.name = name;
+    if (avatar !== undefined) updateData.avatar = avatar;
+
     const user = await prisma.user.update({
       where: { id: req.user!.id },
-      data: { name, avatar },
+      data: updateData,
       select: { id: true, name: true, email: true, role: true, avatar: true },
     });
 
