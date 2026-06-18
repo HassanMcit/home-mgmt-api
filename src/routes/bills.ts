@@ -91,7 +91,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { accountId, transferToAccountId, transferFee } = req.body;
+    const { accountId, transferToAccountId, transferFee, description } = req.body;
 
     const where: any = { id: id as string };
     if (!isAdmin(req.user!.role)) {
@@ -221,7 +221,7 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
               amount: existing.amount,
               type: 'expense',
               category: existing.category,
-              description: `دفع فاتورة: ${existing.name}`,
+              description: description || `دفع فاتورة: ${existing.name}`,
               date: new Date(), // Recorded today
               createdById: req.user!.id,
               accountId: validAccountId
