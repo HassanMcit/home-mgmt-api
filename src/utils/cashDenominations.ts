@@ -3,10 +3,10 @@
  * Utility to update cash denominations when money is added or deducted.
  *
  * Egyptian denominations (largest to smallest):
- * 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.5
+ * 200, 100, 50, 20, 10, 5, 1, 0.5
  */
 
-const DENOM_ORDER = [2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.5];
+const DENOM_ORDER = [200, 100, 50, 20, 10, 5, 1, 0.5];
 
 /**
  * Deducts `amount` from cash denominations using a greedy algorithm

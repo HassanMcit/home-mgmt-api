@@ -206,6 +206,41 @@ router.post('/onboard', authenticate, async (req: AuthRequest, res: Response): P
   }
 });
 
+// Recalculate cash denominations to match current balance (fix stale denominations)
+router.post('/:id/recalc-denominations', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const accountId = req.params.id as string;
+    const userId = req.user!.id;
+
+    const account = await prisma.account.findUnique({ where: { id: accountId } });
+    if (!account) { res.status(404).json({ message: 'الحساب غير موجود' }); return; }
+    if (account.userId !== userId) { res.status(403).json({ message: 'غير مصرح' }); return; }
+    if (account.type !== 'cash') { res.status(400).json({ message: 'هذا الحساب ليس نقدياً' }); return; }
+
+    // Greedy algorithm to distribute balance across denominations
+    const DENOM_ORDER = [200, 100, 50, 20, 10, 5, 1, 0.5];
+    let remaining = Math.round(account.balance * 100);
+    const newDenoms: Record<string, number> = {};
+
+    for (const denom of DENOM_ORDER) {
+      const denomCents = Math.round(denom * 100);
+      const count = Math.floor(remaining / denomCents);
+      newDenoms[String(denom)] = count;
+      remaining -= count * denomCents;
+    }
+
+    const updated = await prisma.account.update({
+      where: { id: accountId },
+      data: { denominations: newDenoms },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('[Account recalc-denominations] Error:', error);
+    res.status(500).json({ message: 'حدث خطأ أثناء إعادة الحساب' });
+  }
+});
+
 // Update account
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
