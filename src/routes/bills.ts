@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticate, AuthRequest, isAdmin } from '../middleware/auth';
+import { deductFromDenominations } from '../utils/cashDenominations';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -213,10 +214,23 @@ router.put('/:id/toggle', authenticate, async (req: AuthRequest, res: Response):
               }
 
               validAccountId = accountId;
-              // Deduct balance (including fee)
+
+              // Build update data
+              const accountUpdateData: any = { balance: { decrement: totalDeduct } };
+
+              // For cash accounts: also update denominations
+              if (account.type === 'cash' && account.denominations) {
+                const currentDenoms = account.denominations as Record<string, number>;
+                const updatedDenoms = deductFromDenominations(currentDenoms, totalDeduct);
+                if (updatedDenoms) {
+                  accountUpdateData.denominations = updatedDenoms;
+                }
+              }
+
+              // Deduct balance (including fee) and update denominations if cash
               await tx.account.update({
                 where: { id: accountId },
-                data: { balance: { decrement: totalDeduct } }
+                data: accountUpdateData
               });
             }
           }
